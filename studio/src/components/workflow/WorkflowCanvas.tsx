@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   Controls,
@@ -10,6 +10,8 @@ import {
   useEdgesState,
   type Node,
   type Edge,
+  useReactFlow,
+  type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import type { WorkflowVersion, EventPayload, NodeResultRecord, WorkflowNodePrompt } from "@/api";
@@ -20,8 +22,7 @@ import { CollectionNode, type CollectionNodeData } from "@/components/workflow/C
 import { workflowToNodesEdges, getStepStatuses } from "@/lib/workflowCanvas";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Link } from "react-router-dom";
-import { cn } from "@/lib/utils";
-import { formatTimestamp } from "@/lib/utils";
+import { cn, formatTimestamp, getCollectionColor } from "@/lib/utils";
 import {
   Sheet,
   SheetContent,
@@ -46,6 +47,8 @@ export interface WorkflowCanvasProps {
   versionId?: string;
   events?: EventPayload[];
   onStepClick?: (stepId: string) => void;
+  onCollectionClick?: (kind: string) => void;
+  collectedKinds?: string[];
   nodeResults?: NodeResultRecord[];
   readOnly?: boolean;
   /** When true, nodes can be dragged to reposition (overrides readOnly for dragging) */
@@ -67,6 +70,8 @@ function WorkflowCanvasInner({
   versionId,
   events,
   onStepClick,
+  onCollectionClick,
+  collectedKinds,
   nodeResults,
   readOnly = true,
   nodesDraggable = false,
@@ -78,19 +83,22 @@ function WorkflowCanvasInner({
   runsVersionForLink,
 }: WorkflowCanvasProps) {
   const [deferredResult, setDeferredResult] = useState<{ nodes: Node[]; edges: Edge[] } | null>(null);
+  const flowRef = useRef<ReactFlowInstance | null>(null);
+  const { fitView } = useReactFlow();
+  const collectedKindsSet = useMemo(() => new Set(collectedKinds ?? []), [collectedKinds]);
 
   useEffect(() => {
     let cancelled = false;
     const t = setTimeout(() => {
       if (cancelled) return;
       const stepStatuses = events ? getStepStatuses(events) : undefined;
-      setDeferredResult(workflowToNodesEdges(workflow, stepStatuses));
+      setDeferredResult(workflowToNodesEdges(workflow, stepStatuses, collectedKindsSet));
     }, 0);
     return () => {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [workflow, events]);
+  }, [workflow, events, collectedKindsSet]);
 
   const baseNodes = nodesOverride ?? (deferredResult ? deferredResult.nodes : EMPTY_NODES);
   const baseEdges = edgesOverride ?? (deferredResult ? deferredResult.edges : EMPTY_EDGES);
@@ -102,6 +110,14 @@ function WorkflowCanvasInner({
     setNodes(baseNodes);
     setEdges(baseEdges);
   }, [baseNodes, baseEdges, setNodes, setEdges]);
+
+  useEffect(() => {
+    if (!nodes.length) return;
+    const t = setTimeout(() => {
+      fitView({ padding: 0.35, duration: 250, minZoom: 0.15, maxZoom: 1.2 });
+    }, 80);
+    return () => clearTimeout(t);
+  }, [nodes.length, edges.length, fitView]);
 
   const canDrag = nodesDraggable || !readOnly;
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
@@ -126,8 +142,17 @@ function WorkflowCanvasInner({
   }, [selectedNode, workflowId, versionId, nodePromptCache]);
 
   function handleNodeClick(_: React.MouseEvent, node: Node) {
-    setSelectedNode(node);
     const d = node.data as Record<string, unknown>;
+    if (node.type === "collection") {
+      const kind = d.kind as string | undefined;
+      if (kind && onCollectionClick) {
+        onCollectionClick(kind);
+        setSelectedNode(null);
+        return;
+      }
+    }
+
+    setSelectedNode(node);
     const nodeId = (d.nodeId as string | undefined) ?? undefined;
     if (nodeId) onStepClick?.(nodeId);
   }
@@ -247,11 +272,51 @@ function WorkflowCanvasInner({
           )}
           <div>
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Input collections</p>
-            <p className="font-mono text-sm">{(d.input ?? []).join(", ") || "-"}</p>
+            {(d.input ?? []).length === 0 ? (
+              <p className="font-mono text-sm">-</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {(d.input ?? []).map((kind) => (
+                  <button
+                    key={`in-${kind}`}
+                    type="button"
+                    className={`text-xs font-mono px-2 py-1 rounded border hover:brightness-95 cursor-pointer transition-colors ${onCollectionClick ? TABLE_LINK_CLASS : ""}`}
+                    style={{ borderColor: getCollectionColor(kind), backgroundColor: `${getCollectionColor(kind)}22` }}
+                    onClick={() => {
+                      if (!onCollectionClick) return;
+                      onCollectionClick(kind);
+                      setSelectedNode(null);
+                    }}
+                  >
+                    {kind}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div>
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Output collections</p>
-            <p className="font-mono text-sm">{(d.output ?? []).join(", ") || "-"}</p>
+            {(d.output ?? []).length === 0 ? (
+              <p className="font-mono text-sm">-</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {(d.output ?? []).map((kind) => (
+                  <button
+                    key={`out-${kind}`}
+                    type="button"
+                    className={`text-xs font-mono px-2 py-1 rounded border hover:brightness-95 cursor-pointer transition-colors ${onCollectionClick ? TABLE_LINK_CLASS : ""}`}
+                    style={{ borderColor: getCollectionColor(kind), backgroundColor: `${getCollectionColor(kind)}22` }}
+                    onClick={() => {
+                      if (!onCollectionClick) return;
+                      onCollectionClick(kind);
+                      setSelectedNode(null);
+                    }}
+                  >
+                    {kind}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           {(() => {
             const rawMcps =
@@ -321,6 +386,12 @@ function WorkflowCanvasInner({
       nodes={nodes}
       edges={edges}
       onNodesChange={onNodesChange}
+      onInit={(instance) => {
+        flowRef.current = instance;
+        setTimeout(() => {
+          instance.fitView({ padding: 0.35, duration: 200, minZoom: 0.15, maxZoom: 1.2 });
+        }, 60);
+      }}
       onEdgesChange={onEdgesChange}
       onNodeClick={handleNodeClick}
       nodeTypes={nodeTypes}
@@ -356,7 +427,7 @@ function WorkflowCanvasInner({
 export function WorkflowCanvas(props: WorkflowCanvasProps) {
   return (
     <ReactFlowProvider>
-      <div className="w-full h-full min-h-[200px]">
+      <div className="relative w-full h-full min-h-[200px]">
         <WorkflowCanvasInner {...props} />
       </div>
     </ReactFlowProvider>

@@ -34,6 +34,8 @@ import { getMergedConfig } from "./config.js";
 import { validateWorkflowVersion } from "./validate.js";
 import { getNextStep, formatNextStepLine } from "./run-engine.js";
 import { mergeKindTemplate } from "./kind-templates.js";
+import { listWorkflowTemplates, listWorkflowTemplatesForPicker, materializeWorkflowTemplate } from "./workflow-templates.js";
+import { applyWorkflowTemplateToWorkspace } from "./workflow-template-apply.js";
 import type { RunRecord, EventPayload, CollectionSchemaConfig } from "./models.js";
 import { NodeResultStatus, type NodeResultRecord, type WorkflowRecord } from "./models.js";
 import { runMcpServer } from "./mcp.js";
@@ -234,6 +236,126 @@ workflowCmd
     const workflowId = opts.workflow ?? index.current_workflow_id;
     const ids = await listWorkflowVersionIds(workflowId, cwd);
     console.log(JSON.stringify(ids, null, 2));
+  });
+
+workflowCmd
+  .command("templates")
+  .description("Interactive template picker/apply (TTY). Use --list for JSON listing.")
+  .option("--list", "Print templates JSON instead of interactive picker")
+  .action(async (opts: { list?: boolean }) => {
+    const cwd = process.cwd();
+    await requireWorkspace(cwd);
+
+    if (opts.list || !process.stdin.isTTY) {
+      console.log(JSON.stringify(listWorkflowTemplates(), null, 2));
+      return;
+    }
+
+    const templates = listWorkflowTemplatesForPicker();
+    const picked = await p.select({
+      message: "Pick a workflow template",
+      options: templates.map((t) => ({
+        value: t.id,
+        label: t.name,
+        hint: `${t.category} · ${t.node_count} nodes`,
+      })),
+    });
+
+    if (p.isCancel(picked)) {
+      p.cancel("Template selection cancelled.");
+      process.exit(0);
+    }
+
+    const templateId = picked as string;
+    const result = await applyWorkflowTemplateToWorkspace({ cwd, templateId });
+    p.note(
+      `Applied template \"${result.template.name}\"\nWorkflow: ${result.workflow.workflow_id}\nNow current: ${result.workflow.workflow_id}`,
+      "Template applied"
+    );
+    console.log(
+      JSON.stringify(
+        {
+          template_id: result.template.id,
+          workflow_id: result.workflow.workflow_id,
+          current_workflow_id: result.workflow.workflow_id,
+          version_id: result.version.version_id,
+        },
+        null,
+        2
+      )
+    );
+  });
+
+workflowCmd
+  .command("template")
+  .description("Print a built-in workflow template JSON by id")
+  .requiredOption("--id <template_id>", "Template ID (see `cognetivy workflow templates`)")
+  .action(async (opts: { id: string }) => {
+    const template = materializeWorkflowTemplate(opts.id);
+    if (!template) {
+      console.error(`Error: Unknown template \"${opts.id}\". Run \`cognetivy workflow templates\` to list IDs.`);
+      process.exit(1);
+    }
+    console.log(JSON.stringify(template, null, 2));
+  });
+
+workflowCmd
+  .command("apply-template")
+  .description("Interactively apply a built-in template by creating a new workflow and setting it current")
+  .option("--id <template_id>", "Template ID (omit for interactive picker)")
+  .option("--workflow <workflow_id>", "Workflow ID to create (default: wf_<template_id>)")
+  .option("--name <string>", "Optional workflow name override")
+  .option("--description <string>", "Optional workflow description override")
+  .action(async (opts: { id?: string; workflow?: string; name?: string; description?: string }) => {
+    const cwd = process.cwd();
+    await requireWorkspace(cwd);
+
+    let templateId = opts.id;
+    if (!templateId) {
+      if (!process.stdin.isTTY) {
+        console.error("Error: --id is required in non-interactive mode.");
+        process.exit(1);
+      }
+      const templates = listWorkflowTemplatesForPicker();
+      const picked = await p.select({
+        message: "Pick a workflow template",
+        options: templates.map((t) => ({
+          value: t.id,
+          label: t.name,
+          hint: `${t.category} · ${t.node_count} nodes`,
+        })),
+      });
+      if (p.isCancel(picked)) {
+        p.cancel("Template apply cancelled.");
+        process.exit(0);
+      }
+      templateId = picked as string;
+    }
+
+    try {
+      const result = await applyWorkflowTemplateToWorkspace({
+        cwd,
+        templateId,
+        workflowId: opts.workflow,
+        workflowName: opts.name,
+        workflowDescription: opts.description,
+      });
+      console.log(
+        JSON.stringify(
+          {
+            template_id: result.template.id,
+            workflow_id: result.workflow.workflow_id,
+            current_workflow_id: result.workflow.workflow_id,
+            version_id: result.version.version_id,
+          },
+          null,
+          2
+        )
+      );
+    } catch (err) {
+      console.error(err instanceof Error ? `Error: ${err.message}` : String(err));
+      process.exit(1);
+    }
   });
 
 workflowCmd

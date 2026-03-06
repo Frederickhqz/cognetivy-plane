@@ -16,6 +16,8 @@ import { getMergedConfig } from "./config.js";
 import { installSkillsFromDirectory, installCognetivySkill } from "./skills.js";
 import { renderPngFileToAnsi } from "./terminal-png.js";
 import { getCurrentVersionSync, writeInstalledSkillsVersion } from "./skills-version.js";
+import { listWorkflowTemplatesForPicker } from "./workflow-templates.js";
+import { applyWorkflowTemplateToWorkspace } from "./workflow-template-apply.js";
 
 function getSkillsConfigFromMerged(config: Awaited<ReturnType<typeof getMergedConfig>>): SkillsConfig | undefined {
   const skills = config.skills as SkillsConfig | undefined;
@@ -200,6 +202,32 @@ export async function runInstallTUI(options: InstallTUIOptions): Promise<void> {
   }
 
   await writeInstalledSkillsVersion(cwd, getCurrentVersionSync());
+
+  const templates = listWorkflowTemplatesForPicker();
+
+  const templateSelection = await p.select({
+    message: "Pick a workflow template to apply now",
+    options: templates.map((t) => ({ value: t.id, label: t.name, hint: `${t.category} · ${t.node_count} nodes` })),
+  });
+
+  if (p.isCancel(templateSelection)) {
+    p.cancel("Install cancelled.");
+    process.exit(0);
+  }
+
+  const templateId = templateSelection as string;
+  try {
+    const result = await applyWorkflowTemplateToWorkspace({ cwd, templateId });
+    p.note(
+      `Applied template \"${result.template.name}\"\nWorkflow: ${result.workflow.workflow_id}\nNow current: ${result.workflow.workflow_id}`,
+      "Template applied"
+    );
+  } catch (err) {
+    p.note(
+      err instanceof Error ? err.message : String(err),
+      "Template apply failed"
+    );
+  }
 
   p.outro("Done! Installed to:");
   installedPaths.forEach((line) => console.log(`  ${line}`));

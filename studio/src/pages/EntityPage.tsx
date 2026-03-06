@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api, type CollectionSchemaConfig, type CollectionItem, type RunRecord } from "@/api";
 import { useWorkflowSelection } from "@/contexts/WorkflowSelectionContext";
 import { formatTimestamp } from "@/lib/utils";
-import { downloadCollectionItemAsPdf } from "@/lib/collectionItemToPdf";
 import { RichText, shouldRenderRichText } from "@/components/display/RichText";
-import { FileDown } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -45,7 +44,7 @@ export function EntityPage() {
   const [items, setItems] = useState<CollectionItem[]>([]);
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const [expandedRowKey, setExpandedRowKey] = useState<string | null>(null);
 
   const runFilterId = searchParams.get("run_id") ?? "";
 
@@ -166,14 +165,10 @@ export function EntityPage() {
     return `/data/${encodeURIComponent(kindSafe)}/items/${encodeURIComponent(id)}${runIdQuery}`;
   }
 
-  async function handleDownloadPdf(item: CollectionItem, e: React.MouseEvent) {
-    e.stopPropagation();
-    try {
-      await downloadCollectionItemAsPdf(item, kindSafe);
-    } catch {
-      // ignore
-    }
+  function toggleRowExpanded(rowKey: string) {
+    setExpandedRowKey((prev) => (prev === rowKey ? null : rowKey));
   }
+
 
   function handleDownloadCsv() {
     const csvColumns = ["created_at", "run_name", ...displayColumns];
@@ -239,10 +234,10 @@ export function EntityPage() {
                   : "No data yet."}
             </p>
           ) : (
-            <>
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-16 text-right">Actions</TableHead>
                   <TableHead className="w-8 min-w-8 text-center">#</TableHead>
                   <TableHead className="min-w-[120px]">Added</TableHead>
                   <TableHead className="min-w-[120px]">Run</TableHead>
@@ -251,32 +246,47 @@ export function EntityPage() {
                       {col.replace(/_/g, " ")}
                     </TableHead>
                   ))}
-                  <TableHead className="w-24 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredItems.map((item, i) => {
                   const itemPath = getItemPagePath(item, i);
+                  const rowKey = (item.id as string) ?? `row-${i}`;
+                  const isExpanded = expandedRowKey === rowKey;
                   return (
                     <TableRow
-                      key={(item.id as string) ?? i}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => navigate(itemPath)}
+                      key={rowKey}
+                      className={cn("cursor-pointer hover:bg-muted/50", isExpanded && "bg-muted/30")}
+                      onClick={() => toggleRowExpanded(rowKey)}
                     >
-                      <TableCell className="text-xs text-muted-foreground text-center align-top w-8 min-w-8">
+                      <TableCell className="text-right align-top py-1.5 w-16" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end">
+                          <a
+                            href={itemPath}
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted inline-flex"
+                            title="Go to collection item"
+                            aria-label="Go to collection item"
+                          >
+                            <ExternalLink className="size-3.5" />
+                          </a>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground text-center align-top w-8 min-w-8 py-1.5">
                         {i + 1}
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap align-top min-w-[120px]">
+                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap align-top min-w-[120px] py-1.5">
                         {formatTimestamp(item.created_at as string | undefined)}
                       </TableCell>
-                      <TableCell className="text-sm min-w-[120px] align-top">
+                      <TableCell className="text-sm min-w-[120px] align-top py-1.5">
                         {item.run_id ? (
                           <Link
                             to={`/runs/${encodeURIComponent(String(item.run_id))}`}
                             className={TABLE_LINK_CLASS}
                             onClick={(e) => e.stopPropagation()}
+                            title={runIdToName.get(String(item.run_id)) ?? String(item.run_id)}
                           >
-                            {runIdToName.get(String(item.run_id)) ?? "-"}
+                            Open run
                           </Link>
                         ) : (
                           "-"
@@ -286,70 +296,61 @@ export function EntityPage() {
                         const value = item[col];
                         const isRich = shouldRenderRichText(col, value);
                         const ref = references[col];
+                        const showClamp = !isExpanded;
                         return (
-                          <TableCell key={col} className="text-sm min-w-[120px] max-w-[500px] whitespace-normal break-words align-top">
-                            {ref && value ? (
-                              Array.isArray(value) ? (
-                                <span className="space-x-1">
-                                  {(value as unknown[]).map((v, idx) => {
-                                    const id = String(v);
-                                    const runIdQuery = item.run_id ? `?run_id=${encodeURIComponent(String(item.run_id))}` : "";
-                                    return (
-                                      <Link
-                                        key={`${col}-${id}-${idx}`}
-                                        to={`/data/${encodeURIComponent(ref.kind)}/items/${encodeURIComponent(id)}${runIdQuery}`}
-                                        className={TABLE_LINK_CLASS}
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        {id}
-                                      </Link>
-                                    );
-                                  })}
-                                </span>
-                              ) : (
-                                <Link
-                                  to={`/data/${encodeURIComponent(ref.kind)}/items/${encodeURIComponent(String(value))}${item.run_id ? `?run_id=${encodeURIComponent(String(item.run_id))}` : ""}`}
-                                  className={TABLE_LINK_CLASS}
+                          <TableCell key={col} className="text-sm min-w-[120px] max-w-[500px] whitespace-normal break-words align-top py-1.5">
+                            <div className={cn(showClamp && "line-clamp-2 overflow-hidden")}>
+                              {ref && value ? (
+                                Array.isArray(value) ? (
+                                  <span className="space-x-1">
+                                    {(value as unknown[]).map((v, idx) => {
+                                      const id = String(v);
+                                      const runIdQuery = item.run_id ? `?run_id=${encodeURIComponent(String(item.run_id))}` : "";
+                                      return (
+                                        <Link
+                                          key={`${col}-${id}-${idx}`}
+                                          to={`/data/${encodeURIComponent(ref.kind)}/items/${encodeURIComponent(id)}${runIdQuery}`}
+                                          className={TABLE_LINK_CLASS}
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          {id}
+                                        </Link>
+                                      );
+                                    })}
+                                  </span>
+                                ) : (
+                                  <Link
+                                    to={`/data/${encodeURIComponent(ref.kind)}/items/${encodeURIComponent(String(value))}${item.run_id ? `?run_id=${encodeURIComponent(String(item.run_id))}` : ""}`}
+                                    className={TABLE_LINK_CLASS}
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {String(value)}
+                                  </Link>
+                                )
+                              ) : col === "url" && value ? (
+                                <a
+                                  href={value as string}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={cn(TABLE_LINK_CLASS, "break-all")}
                                   onClick={(e) => e.stopPropagation()}
                                 >
-                                  {String(value)}
-                                </Link>
-                              )
-                            ) : col === "url" && value ? (
-                              <a
-                                href={value as string}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className={cn(TABLE_LINK_CLASS, "break-all")}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {formatCellValue(value)}
-                              </a>
-                            ) : isRich ? (
-                              <RichText content={value} className="line-clamp-3 text-xs" />
-                            ) : (
-                              formatCellValue(value)
-                            )}
+                                  {formatCellValue(value)}
+                                </a>
+                              ) : isRich ? (
+                                <RichText content={value} className={cn("text-xs", showClamp && "line-clamp-2")} />
+                              ) : (
+                                formatCellValue(value)
+                              )}
+                            </div>
                           </TableCell>
                         );
                       })}
-                      <TableCell className="text-right align-top" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={(e) => handleDownloadPdf(item, e)}
-                          className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted"
-                          title="Download as PDF"
-                          aria-label="Download as PDF"
-                        >
-                          <FileDown className="size-3.5" />
-                        </button>
-                      </TableCell>
                     </TableRow>
                   );
                 })}
               </TableBody>
             </Table>
-            </>
           )}
         </CardContent>
       </Card>

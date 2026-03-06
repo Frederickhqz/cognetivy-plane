@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Info } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
-import { api, type WorkflowVersion, type VersionListItem } from "@/api";
+import { api, type CollectionKindSchema, type WorkflowVersion, type VersionListItem } from "@/api";
 import { useWorkflowSelection } from "@/contexts/WorkflowSelectionContext";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { TABLE_LINK_CLASS } from "@/lib/utils";
 import { WorkflowCanvas } from "@/components/workflow/WorkflowCanvas";
 import { diffWorkflowVersions } from "@/lib/workflowDiff";
@@ -26,12 +27,14 @@ export function WorkflowPage() {
   const workflowFromUrl = searchParams.get("workflow_id");
   const versionFromUrl = searchParams.get("version_id");
 
-  const [workflowRecord, setWorkflowRecord] = useState<{ current_version_id: string } | null>(null);
+  const [workflowRecord, setWorkflowRecord] = useState<{ current_version_id: string; name?: string; description?: string } | null>(null);
   const [versions, setVersions] = useState<VersionListItem[]>([]);
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(versionFromUrl);
   const [workflowVersion, setWorkflowVersion] = useState<WorkflowVersion | null>(null);
   const [prevWorkflowVersion, setPrevWorkflowVersion] = useState<WorkflowVersion | null>(null);
   const [showChanges, setShowChanges] = useState(false);
+  const [collectionSchemas, setCollectionSchemas] = useState<Record<string, CollectionKindSchema>>({});
+  const [selectedCollectionKind, setSelectedCollectionKind] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -74,6 +77,17 @@ export function WorkflowPage() {
       .then(setWorkflowVersion)
       .catch(() => setWorkflowVersion(null));
   }, [selectedWorkflowId, selectedVersionId]);
+
+  useEffect(() => {
+    if (!selectedWorkflowId) {
+      setCollectionSchemas({});
+      return;
+    }
+    api
+      .getCollectionSchema(selectedWorkflowId)
+      .then((schema) => setCollectionSchemas(schema.kinds ?? {}))
+      .catch(() => setCollectionSchemas({}));
+  }, [selectedWorkflowId]);
 
   useEffect(() => {
     if (!selectedWorkflowId || !selectedVersionId || versions.length === 0) {
@@ -203,6 +217,12 @@ export function WorkflowPage() {
           </div>
         )}
       </div>
+      <div className="px-3 pt-2 pb-1 border-b border-border bg-muted/10">
+        <div className="text-sm font-semibold">{workflowRecord?.name ?? selectedWorkflow?.name ?? "Workflow"}</div>
+        {workflowRecord?.description && (
+          <div className="text-xs text-muted-foreground mt-0.5">{workflowRecord.description}</div>
+        )}
+      </div>
       <div className="flex-1 min-h-0">
         {workflowVersion ? (
           <WorkflowCanvas
@@ -212,6 +232,7 @@ export function WorkflowPage() {
             runsVersionForLink={selectedVersionId ?? undefined}
             nodesOverride={diffOverride?.nodes}
             edgesOverride={diffOverride?.edges}
+            onCollectionClick={(kind) => setSelectedCollectionKind(kind)}
             readOnly
             showControls
             showBackground
@@ -223,6 +244,64 @@ export function WorkflowPage() {
           </div>
         )}
       </div>
+
+      <Sheet open={!!selectedCollectionKind} onOpenChange={(open) => !open && setSelectedCollectionKind(null)}>
+        <SheetContent side="right" className="w-full max-w-md">
+          <SheetHeader>
+            <SheetTitle className="text-base">Collection schema: {selectedCollectionKind}</SheetTitle>
+            <SheetDescription className="sr-only">Collection schema details</SheetDescription>
+          </SheetHeader>
+          <div className="pt-4 space-y-3 text-sm">
+            {selectedCollectionKind ? (() => {
+              const schema = collectionSchemas[selectedCollectionKind];
+              const itemSchema = (schema?.item_schema ?? {}) as Record<string, unknown>;
+              const properties = (itemSchema.properties ?? {}) as Record<string, Record<string, unknown>>;
+              const required = new Set(((itemSchema.required as string[] | undefined) ?? []));
+              const rows = Object.entries(properties);
+
+              return (
+                <>
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Name</div>
+                    <div>{schema?.name ?? "-"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Description</div>
+                    <div className="text-muted-foreground">{schema?.description ?? "-"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Fields</div>
+                    {rows.length === 0 ? (
+                      <div className="rounded-md border border-border bg-muted/20 p-2 text-xs text-muted-foreground">No explicit properties defined.</div>
+                    ) : (
+                      <div className="rounded-md border border-border overflow-hidden">
+                        <div className="max-h-[50vh] overflow-y-auto">
+                          {rows.map(([field, meta]) => (
+                            <div key={field} className="grid grid-cols-[1fr_auto] gap-2 border-b last:border-b-0 border-border px-3 py-2">
+                              <div>
+                                <div className="font-medium text-sm">{field}</div>
+                                <div className="text-xs text-muted-foreground mt-0.5">
+                                  {(meta.type as string) ?? "any"}
+                                  {(meta.description as string) ? ` • ${String(meta.description)}` : ""}
+                                </div>
+                              </div>
+                              {required.has(field) ? (
+                                <span className="self-start rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">required</span>
+                              ) : (
+                                <span className="self-start rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">optional</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
+            })() : null}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

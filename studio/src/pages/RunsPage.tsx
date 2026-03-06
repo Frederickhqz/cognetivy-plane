@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, type RunRecord } from "@/api";
 import { useWorkflowSelection } from "@/contexts/WorkflowSelectionContext";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
@@ -21,7 +21,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { CopyableId } from "@/components/ui/CopyableId";
-import { downloadTableCsv, TABLE_LINK_CLASS } from "@/lib/utils";
+import { downloadTableCsv, formatTimestamp } from "@/lib/utils";
+
 
 const POLL_MS = 3000;
 const ALL_VERSIONS = "";
@@ -34,6 +35,7 @@ export function RunsPage() {
   const statusFilter = searchParams.get("status") ?? ALL_STATUSES;
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const workflowRuns = useMemo(() => {
     if (!selectedWorkflowId) return runs;
@@ -74,6 +76,7 @@ export function RunsPage() {
       return next;
     });
   }
+
 
   const load = useCallback(async () => {
     try {
@@ -210,48 +213,37 @@ export function RunsPage() {
                   </TableCell>
                 </TableRow>
               )}
-              {filteredRuns.map((run, i) => (
-                <TableRow
-                  key={run.run_id}
-                  className={run.status === "running" ? "bg-amber-500/5 dark:bg-amber-500/10" : undefined}
-                >
-                  <TableCell className="text-xs text-muted-foreground text-center align-top w-8 min-w-8">
-                    {i + 1}
-                  </TableCell>
-                  <TableCell>
-                    <Link
-                      to={`/runs/${encodeURIComponent(run.run_id)}`}
-                      className={TABLE_LINK_CLASS}
-                    >
-                      {run.name ?? "-"}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="max-w-[200px]">
-                    <CopyableId value={run.run_id} truncateLength={24} />
-                  </TableCell>
-                  <TableCell>
-                    <Link
-                      to={`/runs?version=${encodeURIComponent(run.workflow_version_id)}${statusFilter ? `&status=${encodeURIComponent(statusFilter)}` : ""}`}
-                      className={TABLE_LINK_CLASS}
-                    >
-                      {run.workflow_version_id}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <Link
-                      to={`/runs?status=${encodeURIComponent(run.status)}${versionFilter ? `&version=${encodeURIComponent(versionFilter)}` : ""}`}
-                      className="inline-block"
-                    >
-                      <Badge variant={run.status === "running" ? "default" : "secondary"}>
-                        {run.status}
-                      </Badge>
-                    </Link>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
-                    {run.created_at}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {filteredRuns.map((run, i) => {
+                return (
+                  <TableRow
+                    key={run.run_id}
+                    className={[
+                      "cursor-pointer hover:bg-muted/50",
+                      run.status === "running" ? "bg-amber-500/5 dark:bg-amber-500/10" : "",
+                    ].join(" ")}
+                    onClick={() => navigate(`/runs/${encodeURIComponent(run.run_id)}`)}
+                  >
+                    <TableCell className="text-xs text-muted-foreground text-center align-top w-8 min-w-8 py-1.5">
+                      {i + 1}
+                    </TableCell>
+                    <TableCell className="align-top py-1.5">
+                      <div className="text-sm font-semibold whitespace-normal break-words line-clamp-2 overflow-hidden">
+                        {run.name ?? "-"}
+                      </div>
+                    </TableCell>
+                    <TableCell className="max-w-[200px] align-top py-1.5">
+                      <CopyableId value={run.run_id} truncateLength={24} />
+                    </TableCell>
+                    <TableCell className="align-top py-1.5 text-sm">{run.workflow_version_id}</TableCell>
+                    <TableCell className="align-top py-1.5">
+                      <Badge variant={run.status === "running" ? "default" : "secondary"}>{run.status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm whitespace-nowrap align-top py-1.5">
+                      {formatTimestamp(run.created_at)}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
