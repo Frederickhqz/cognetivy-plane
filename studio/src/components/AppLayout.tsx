@@ -54,7 +54,7 @@ export function AppLayout() {
   const location = useLocation();
   const { theme, setTheme } = useTheme();
   const { open: onboardingOpen, closeForSession, dismissPermanently } = useOnboardingVisibility();
-  const { workflows, selectedWorkflowId, setSelectedWorkflowId, selectedWorkflow } = useWorkflowSelection();
+  const { workflows, selectedWorkflowId, setSelectedWorkflowId } = useWorkflowSelection();
   const [schema, setSchema] = useState<CollectionSchemaConfig | null>(null);
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [workspace, setWorkspace] = useState<WorkspaceInfo | null>(null);
@@ -215,7 +215,7 @@ export function AppLayout() {
         )}
         {sidebarOpen && workflows.length > 0 && (
           <div className="px-2.5 py-2 border-b border-border">
-            <div className="text-[10px] text-muted-foreground mb-1">Workflow</div>
+            <div className="text-[10px] text-muted-foreground mb-1">Select a workflow</div>
             <Select value={selectedWorkflowId ?? ""} onValueChange={handleWorkflowChange}>
               <SelectTrigger className="h-8 w-full text-xs">
                 <SelectValue placeholder="Select workflow" />
@@ -228,11 +228,6 @@ export function AppLayout() {
                 ))}
               </SelectContent>
             </Select>
-            {selectedWorkflow?.description && (
-              <p className="mt-1 text-[10px] text-muted-foreground line-clamp-2">
-                {selectedWorkflow.description}
-              </p>
-            )}
           </div>
         )}
         <ScrollArea className="flex-1 min-h-0">

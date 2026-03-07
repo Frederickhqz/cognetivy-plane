@@ -11,7 +11,7 @@ import fs from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import ora from "ora";
 import type { SkillInstallTarget, SkillsConfig } from "./skills.js";
-import { ensureWorkspace } from "./workspace.js";
+import { ensureWorkspace, workspaceExists } from "./workspace.js";
 import { getMergedConfig } from "./config.js";
 import { installSkillsFromDirectory, installCognetivySkill } from "./skills.js";
 import { renderPngFileToAnsi } from "./terminal-png.js";
@@ -48,16 +48,16 @@ interface ClientOption {
 const CLIENT_OPTIONS: ClientOption[] = [
   { value: InstallerClient.ClaudeCode, label: "Claude Code", hint: "Installs into .claude/skills" },
   { value: InstallerClient.Cursor, label: "Cursor", hint: "Installs into .cursor/skills" },
-  { value: InstallerClient.OpenClaw, label: "OpenClaw", hint: "Installs Agent Skills bundle into skills/" },
-  { value: InstallerClient.OpenAICodex, label: "OpenAI Codex", hint: "Agent Skills bundle (SKILL.md) into skills/" },
-  { value: InstallerClient.GitHubCopilot, label: "GitHub Copilot", hint: "Agent Skills bundle (SKILL.md) into skills/" },
-  { value: InstallerClient.GeminiCli, label: "Gemini CLI", hint: "Agent Skills bundle (SKILL.md) into skills/" },
-  { value: InstallerClient.Amp, label: "Amp", hint: "Agent Skills bundle (SKILL.md) into skills/" },
-  { value: InstallerClient.CursorAgentCli, label: "Cursor Agent CLI", hint: "Agent Skills bundle (SKILL.md) into skills/" },
-  { value: InstallerClient.OpenCode, label: "OpenCode", hint: "Agent Skills bundle (SKILL.md) into skills/" },
-  { value: InstallerClient.FactoryDroid, label: "Factory Droid", hint: "Agent Skills bundle (SKILL.md) into skills/" },
-  { value: InstallerClient.CCR, label: "CCR (Claude Code Router)", hint: "Agent Skills bundle (SKILL.md) into skills/" },
-  { value: InstallerClient.QwenCode, label: "Qwen Code", hint: "Agent Skills bundle (SKILL.md) into skills/" },
+  { value: InstallerClient.OpenClaw, label: "OpenClaw", hint: "Installs into skills/ (workspace)" },
+  { value: InstallerClient.OpenAICodex, label: "OpenAI Codex", hint: "Installs into .agents/skills" },
+  { value: InstallerClient.GitHubCopilot, label: "GitHub Copilot", hint: "Installs into .agents/skills" },
+  { value: InstallerClient.GeminiCli, label: "Gemini CLI", hint: "Installs into .gemini/skills" },
+  { value: InstallerClient.Amp, label: "Amp", hint: "Installs into .agents/skills" },
+  { value: InstallerClient.CursorAgentCli, label: "Cursor Agent CLI", hint: "Installs into .agents/skills" },
+  { value: InstallerClient.OpenCode, label: "OpenCode", hint: "Installs into .opencode/skills" },
+  { value: InstallerClient.FactoryDroid, label: "Factory Droid", hint: "Installs into .factory/skills" },
+  { value: InstallerClient.CCR, label: "CCR (Claude Code Router)", hint: "Installs into .claude/skills" },
+  { value: InstallerClient.QwenCode, label: "Qwen Code", hint: "Installs into .qwen/skills" },
 ];
 
 function clientToTargets(clients: InstallerClient[]): SkillInstallTarget[] {
@@ -73,8 +73,23 @@ function clientToTargets(clients: InstallerClient[]): SkillInstallTarget[] {
       case InstallerClient.OpenClaw:
         targets.add("openclaw");
         break;
+      case InstallerClient.CCR:
+        targets.add("agent");
+        break;
+      case InstallerClient.FactoryDroid:
+        targets.add("factory");
+        break;
+      case InstallerClient.GeminiCli:
+        targets.add("gemini");
+        break;
+      case InstallerClient.OpenCode:
+        targets.add("opencode");
+        break;
+      case InstallerClient.QwenCode:
+        targets.add("qwen");
+        break;
       default:
-        targets.add("openclaw");
+        targets.add("agents");
         break;
     }
   }
@@ -85,10 +100,20 @@ function targetToInstallPathHint(target: SkillInstallTarget): string {
   switch (target) {
     case "agent":
       return ".claude/skills";
+    case "agents":
+      return ".agents/skills";
     case "cursor":
       return ".cursor/skills";
+    case "factory":
+      return ".factory/skills";
+    case "gemini":
+      return ".gemini/skills";
     case "openclaw":
       return "skills/";
+    case "opencode":
+      return ".opencode/skills";
+    case "qwen":
+      return ".qwen/skills";
     case "workspace":
       return ".cognetivy/skills";
     default:
@@ -169,6 +194,8 @@ export async function runInstallTUI(options: InstallTUIOptions): Promise<void> {
     "Install plan"
   );
 
+  const hadWorkspaceBefore = await workspaceExists(cwd);
+
   if (init) {
     const initSpinner = ora("Initializing workspace...").start();
     try {
@@ -182,7 +209,8 @@ export async function runInstallTUI(options: InstallTUIOptions): Promise<void> {
 
   const config = await getMergedConfig(cwd);
   const skillsConfig = getSkillsConfigFromMerged(config);
-  const optsCommon = { force, cwd, config: skillsConfig ?? {} };
+  const forceSkills = force ?? true;
+  const optsCommon = { force: forceSkills, cwd, config: skillsConfig ?? {} };
   const installedPaths: string[] = [];
 
   for (const internalTarget of targetsToInstall) {
@@ -197,36 +225,47 @@ export async function runInstallTUI(options: InstallTUIOptions): Promise<void> {
       spinner.succeed(`Installed to ${targetToInstallPathHint(internalTarget)}`);
     } catch (err) {
       spinner.fail(`Failed for ${internalTarget}`);
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes("Skill already exists") && message.includes("--force")) {
+        p.note(
+          `Skills are already installed at ${targetToInstallPathHint(internalTarget)}. Run \`cognetivy install --force\` to update them.`,
+          "Tip"
+        );
+        process.exit(1);
+      }
       throw err;
     }
   }
 
   await writeInstalledSkillsVersion(cwd, getCurrentVersionSync());
 
-  const templates = listWorkflowTemplatesForPicker();
+  if (hadWorkspaceBefore) {
+    p.note("Workspace already set up; skipping template.", "Skills updated");
+  } else {
+    const templates = listWorkflowTemplatesForPicker();
+    const templateSelection = await p.select({
+      message: "Pick a workflow template to apply now",
+      options: templates.map((t) => ({ value: t.id, label: t.name, hint: `${t.category} · ${t.node_count} nodes` })),
+    });
 
-  const templateSelection = await p.select({
-    message: "Pick a workflow template to apply now",
-    options: templates.map((t) => ({ value: t.id, label: t.name, hint: `${t.category} · ${t.node_count} nodes` })),
-  });
+    if (p.isCancel(templateSelection)) {
+      p.cancel("Install cancelled.");
+      process.exit(0);
+    }
 
-  if (p.isCancel(templateSelection)) {
-    p.cancel("Install cancelled.");
-    process.exit(0);
-  }
-
-  const templateId = templateSelection as string;
-  try {
-    const result = await applyWorkflowTemplateToWorkspace({ cwd, templateId });
-    p.note(
-      `Applied template \"${result.template.name}\"\nWorkflow: ${result.workflow.workflow_id}\nNow current: ${result.workflow.workflow_id}`,
-      "Template applied"
-    );
-  } catch (err) {
-    p.note(
-      err instanceof Error ? err.message : String(err),
-      "Template apply failed"
-    );
+    const templateId = templateSelection as string;
+    try {
+      const result = await applyWorkflowTemplateToWorkspace({ cwd, templateId });
+      p.note(
+        `Applied template \"${result.template.name}\"\nWorkflow: ${result.workflow.workflow_id}\nNow current: ${result.workflow.workflow_id}`,
+        "Template applied"
+      );
+    } catch (err) {
+      p.note(
+        err instanceof Error ? err.message : String(err),
+        "Template apply failed"
+      );
+    }
   }
 
   p.outro("Done! Installed to:");

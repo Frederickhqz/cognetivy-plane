@@ -38,9 +38,20 @@ export function WorkflowSelectionProvider({ children }: { children: React.ReactN
     const list = await api.getWorkflows();
     setWorkflows(list);
     setSelectedWorkflowIdState((prev) => {
+      const listWithCurrent = list as Array<WorkflowSummary & { current?: boolean }>;
+      const current = listWithCurrent.find((w) => w.current);
+      const currentId = current?.workflow_id ?? null;
+
+      // Prefer server's current so CLI actions (e.g. cognetivy templates) are reflected in the UI.
+      if (currentId) {
+        writeStoredWorkflowId(currentId);
+        return currentId;
+      }
+
+      // No server current: keep prev if still in list, otherwise first workflow.
       if (prev && list.some((w) => w.workflow_id === prev)) return prev;
-      const current = (list as Array<WorkflowSummary & { current?: boolean }>).find((w) => w.current);
-      const fallback = current?.workflow_id ?? list[0]?.workflow_id ?? null;
+      const fallback = list[0]?.workflow_id ?? null;
+      if (fallback) writeStoredWorkflowId(fallback);
       return fallback;
     });
   }, []);

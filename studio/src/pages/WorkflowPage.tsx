@@ -174,7 +174,7 @@ export function WorkflowPage() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="px-3 py-1.5 border-b border-border flex flex-wrap items-center gap-2 text-sm">
+      <div className="p-3 border-b border-border flex flex-wrap items-center gap-2 text-sm">
         <Breadcrumbs items={[{ label: "Workflow" }]} />
         {selectedWorkflow?.name && (
           <span className="text-xs text-muted-foreground">
@@ -182,6 +182,15 @@ export function WorkflowPage() {
           </span>
         )}
         {versionItems.length > 0 && (
+          <div className="ml-auto flex items-center gap-4">
+          {selectedVersionId && (
+            <Link
+              to={`/runs?version=${encodeURIComponent(selectedVersionId)}`}
+              className={`ml-auto text-xs font-medium ${TABLE_LINK_CLASS}`}
+            >
+              Go to runs of version {selectedVersionId}
+            </Link>
+          )}
           <Select value={selectedVersionId ?? currentVersionId ?? ""} onValueChange={handleVersionChange}>
             <SelectTrigger className="w-[140px] h-8 text-xs rounded-md border bg-background">
               <SelectValue placeholder="Version" />
@@ -190,14 +199,7 @@ export function WorkflowPage() {
               {versions.map(renderVersionSelectItem)}
             </SelectContent>
           </Select>
-        )}
-        {selectedVersionId && (
-          <Link
-            to={`/runs?version=${encodeURIComponent(selectedVersionId)}`}
-            className={`text-xs font-medium ${TABLE_LINK_CLASS}`}
-          >
-            Runs ({selectedVersionId})
-          </Link>
+          </div>
         )}
         {diff && (
           <div className="flex items-center gap-2">
@@ -217,12 +219,13 @@ export function WorkflowPage() {
           </div>
         )}
       </div>
-      <div className="px-3 pt-2 pb-1 border-b border-border bg-muted/10">
+      <div className="p-3 border-b border-border bg-muted/10">
         <div className="text-sm font-semibold">{workflowRecord?.name ?? selectedWorkflow?.name ?? "Workflow"}</div>
         {workflowRecord?.description && (
           <div className="text-xs text-muted-foreground mt-0.5">{workflowRecord.description}</div>
         )}
       </div>
+
       <div className="flex-1 min-h-0">
         {workflowVersion ? (
           <WorkflowCanvas
@@ -257,7 +260,8 @@ export function WorkflowPage() {
               const itemSchema = (schema?.item_schema ?? {}) as Record<string, unknown>;
               const properties = (itemSchema.properties ?? {}) as Record<string, Record<string, unknown>>;
               const required = new Set(((itemSchema.required as string[] | undefined) ?? []));
-              const rows = Object.entries(properties);
+              const hiddenRepeatedFields = new Set(["citations", "derived_from", "reasoning"]);
+              const rows = Object.entries(properties).filter(([field]) => !hiddenRepeatedFields.has(field));
 
               return (
                 <>
@@ -295,6 +299,11 @@ export function WorkflowPage() {
                         </div>
                       </div>
                     )}
+                    {properties.citations || properties.derived_from || properties.reasoning ? (
+                      <div className="mt-2 rounded-md border border-dashed border-border bg-muted/20 p-2 text-[11px] text-muted-foreground">
+                        Shared traceability fields are hidden here to reduce noise: <code>citations</code>, <code>derived_from</code>, <code>reasoning</code>.
+                      </div>
+                    ) : null}
                   </div>
                 </>
               );
