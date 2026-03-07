@@ -23,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - (none)
 
+## [0.1.34] - 2025-03-08
+
+### Fixed
+
+- **Studio: workflow selection.** Selected workflow is no longer overwritten when the workflow list is reloaded (e.g. every 2s poll). Users can switch workflows from the sidebar and the choice persists across refresh. When the selected workflow is missing from the list (invalid or deleted), the sidebar still shows the selector with an "Unknown workflow" option so the user can pick another.
+
 ## [0.1.33] - 2025-03-08
 
 ### Added
@@ -150,7 +156,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Studio: read-only UI for workflow DAG, runs, events, and collections.
 - Skills installation for Cursor, Claude Code, OpenClaw, and workspace.
 
-[Unreleased]: https://github.com/meitarbe/cognetivy/compare/v0.1.33...HEAD
+[Unreleased]: https://github.com/meitarbe/cognetivy/compare/v0.1.34...HEAD
+[0.1.34]: https://github.com/meitarbe/cognetivy/compare/v0.1.33...v0.1.34
 [0.1.33]: https://github.com/meitarbe/cognetivy/compare/v0.1.31...v0.1.33
 [0.1.31]: https://github.com/meitarbe/cognetivy/compare/v0.1.30...v0.1.31
 [0.1.30]: https://github.com/meitarbe/cognetivy/compare/v0.1.23...v0.1.30

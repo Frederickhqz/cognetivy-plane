@@ -1,9 +1,4 @@
-
-
-# cognetivy - ignore runtime data; commit workflow.versions/
-.cognetivy/runs/
-.cognetivy/events/
-.cognetivy/collections/
-.cognetivy/data/
+.cursor
+.openclaw
 .cognetivy
 .cursor

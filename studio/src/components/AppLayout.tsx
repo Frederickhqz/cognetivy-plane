@@ -213,7 +213,7 @@ export function AppLayout() {
             <span className="text-xs text-muted-foreground">Light</span>
           </div>
         )}
-        {sidebarOpen && workflows.length > 0 && (
+        {sidebarOpen && (workflows.length > 0 || selectedWorkflowId) && (
           <div className="px-2.5 py-2 border-b border-border">
             <div className="text-[10px] text-muted-foreground mb-1">Select a workflow</div>
             <Select value={selectedWorkflowId ?? ""} onValueChange={handleWorkflowChange}>
@@ -221,6 +221,11 @@ export function AppLayout() {
                 <SelectValue placeholder="Select workflow" />
               </SelectTrigger>
               <SelectContent>
+                {selectedWorkflowId && !workflows.some((w) => w.workflow_id === selectedWorkflowId) && (
+                  <SelectItem value={selectedWorkflowId}>
+                    <span className="text-muted-foreground">Unknown workflow</span>
+                  </SelectItem>
+                )}
                 {workflows.map((w) => (
                   <SelectItem key={w.workflow_id} value={w.workflow_id}>
                     {w.name}
