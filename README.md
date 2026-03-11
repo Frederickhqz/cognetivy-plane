@@ -13,6 +13,11 @@
 
 Cognetivy is an open-source state layer for AI-assistants like Claude Code, Cursor, OpenClaw, etc. It helps you define workflows, track runs and events, and store structured collections in a local `.cognetivy/` workspace. No LLMs inside - just the data and tools your editor's agent uses via [Skills](https://agentskills.io/) and [MCP](https://agentskills.io/). Works with **Claude Code**, **Cursor**, **OpenClaw**, and other Skills and MCP-compatible clients.
 
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/image?repos=meitarbe/cognetivy&type=date&legend=top-left)](https://www.star-history.com/?repos=meitarbe%2Fcognetivy&type=date&legend=top-left)
+
 ## Why Cognetivy
 
 AI coding agents are great at producing output, but their process is usually hard to inspect and hard to repeat.
