@@ -1608,6 +1608,23 @@ program
   });
 
 program
+  .command("webhook")
+  .description("Start webhook server for Plane integration")
+  .option("--port <number>", "Port for webhook server", (v) => parseInt(v, 10), 3000)
+  .option("--workspace <path>", "Workspace directory (default: cwd)")
+  .action(async (opts: { port?: number; workspace?: string }) => {
+    const { startWebhookServer } = await import("./webhooks.js");
+    const cwd = opts.workspace ? path.resolve(process.cwd(), opts.workspace) : process.cwd();
+    
+    console.log(`Starting webhook server on port ${opts.port}...`);
+    console.log(`Webhook endpoint: http://localhost:${opts.port}/webhooks/plane`);
+    console.log(`Health check: http://localhost:${opts.port}/health`);
+    console.log("Press Ctrl+C to stop.");
+    
+    startWebhookServer(opts.port, cwd);
+  });
+
+program
   .command("studio")
   .description("Open read-only Studio (workflow, runs, events, collections) in browser")
   .option("--workspace <path>", "Workspace directory (default: cwd)")
