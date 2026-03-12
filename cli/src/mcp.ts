@@ -118,6 +118,22 @@ const TOOLS: Array<{ name: string; description: string; inputSchema: { type: "ob
     inputSchema: { type: "object", properties: {} },
   },
   {
+    name: "skills_list",
+    description:
+      "List available Agent skills (SKILL.md) from configured sources (agent, agents, cursor, factory, gemini, openclaw, opencode, qwen, workspace). Returns name, description, path, source for discovery.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        sources: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Optional: filter by source (agent, agents, cursor, factory, gemini, openclaw, opencode, qwen, workspace)",
+        },
+      },
+    },
+  },
+  {
     name: "run_start",
     description:
       "Start a new run. Returns run_id, suggested_collection_kinds, next_step (action, node_id?, hint?), and current_node_id when in progress. Follow next_step.hint for what to do next. Prefer run_step to advance; use node_start/node_complete only if needed.",
