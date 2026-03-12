@@ -1,0 +1,261 @@
+/* Plane Theme for Cognetivy Studio
+ * Matches Plane's design system for seamless embedding
+ */
+
+:root {
+  /* Plane Colors */
+  --color-primary-10: #E4E2FF;
+  --color-primary-20: #C4C0FF;
+  --color-primary-30: #A39BFF;
+  --color-primary-40: #8376FF;
+  --color-primary-50: #6351FF;
+  --color-primary-60: #5040EA;
+  --color-primary-70: #3D32D4;
+  --color-primary-80: #2A25B0;
+  --color-primary-90: #1A178C;
+
+  /* Background */
+  --color-bg-0: #FFFFFF;
+  --color-bg-1: #FAFAFA;
+  --color-bg-2: #F3F1FF;
+  --color-bg-3: #E9E7EF;
+  --color-bg-4: #DFDCE8;
+
+  /* Text */
+  --color-text-0: #0D0D0D;
+  --color-text-1: #242426;
+  --color-text-2: #3D3D40;
+  --color-text-3: #58585C;
+  --color-text-4: #8A8A8E;
+  --color-text-5: #B9B9BD;
+
+  /* Border */
+  --color-border-0: #D9D9D9;
+  --color-border-1: #C5C5C5;
+  --color-border-2: #B0B0B0;
+
+  /* Status */
+  --color-success: #27AE60;
+  --color-warning: #F2994A;
+  --color-error: #EB5757;
+  --color-info: #2F80ED;
+}
+
+/* Apply Plane theme to root variables */
+.theme-plane {
+  --radius: 0.5rem; /* 8px - Plane uses 8px radius */
+
+  /* Override shadcn/ui variables with Plane colors */
+  --background: var(--color-bg-0);
+  --foreground: var(--color-text-0);
+
+  --card: var(--color-bg-0);
+  --card-foreground: var(--color-text-0);
+
+  --popover: var(--color-bg-0);
+  --popover-foreground: var(--color-text-0);
+
+  --primary: var(--color-primary-50);
+  --primary-foreground: var(--color-bg-0);
+
+  --secondary: var(--color-bg-2);
+  --secondary-foreground: var(--color-text-1);
+
+  --muted: var(--color-bg-3);
+  --muted-foreground: var(--color-text-3);
+
+  --accent: var(--color-bg-2);
+  --accent-foreground: var(--color-text-1);
+
+  --destructive: var(--color-error);
+  --destructive-foreground: var(--color-bg-0);
+
+  --border: var(--color-border-0);
+  --input: var(--color-border-0);
+  --ring: var(--color-primary-50);
+
+  --sidebar: var(--color-bg-1);
+  --sidebar-foreground: var(--color-text-1);
+  --sidebar-primary: var(--color-primary-50);
+  --sidebar-primary-foreground: var(--color-bg-0);
+  --sidebar-accent: var(--color-bg-2);
+  --sidebar-accent-foreground: var(--color-text-1);
+  --sidebar-border: var(--color-border-0);
+  --sidebar-ring: var(--color-primary-50);
+}
+
+/* Plane-specific component styles */
+.theme-plane .font-sans {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.theme-plane .shadow-sm {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.theme-plane .shadow {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.theme-plane .shadow-md {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Plane button styles */
+.theme-plane .btn-primary {
+  background: linear-gradient(135deg, var(--color-primary-50) 0%, var(--color-primary-60) 100%);
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.theme-plane .btn-primary:hover {
+  background: linear-gradient(135deg, var(--color-primary-60) 0%, var(--color-primary-70) 100%);
+  box-shadow: 0 4px 12px rgba(99, 81, 255, 0.3);
+}
+
+/* Plane sidebar styles */
+.theme-plane .sidebar {
+  background: var(--color-bg-1);
+  border-right: 1px solid var(--color-border-0);
+  width: 260px;
+}
+
+.theme-plane .sidebar-item {
+  padding: 0.625rem 1rem;
+  border-radius: 0.375rem;
+  margin: 0.125rem 0.5rem;
+  transition: background 0.15s ease;
+}
+
+.theme-plane .sidebar-item:hover {
+  background: var(--color-bg-2);
+}
+
+.theme-plane .sidebar-item.active {
+  background: var(--color-bg-2);
+  color: var(--color-primary-50);
+  font-weight: 500;
+}
+
+/* Plane card styles */
+.theme-plane .card {
+  background: var(--color-bg-0);
+  border: 1px solid var(--color-border-0);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+/* Plane table styles */
+.theme-plane .table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.theme-plane .table th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-4);
+  border-bottom: 1px solid var(--color-border-0);
+}
+
+.theme-plane .table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-border-0);
+}
+
+.theme-plane .table tr:hover td {
+  background: var(--color-bg-1);
+}
+
+/* Plane status badge */
+.theme-plane .badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.theme-plane .badge-success {
+  background: rgba(39, 174, 96, 0.1);
+  color: var(--color-success);
+}
+
+.theme-plane .badge-warning {
+  background: rgba(242, 153, 74, 0.1);
+  color: var(--color-warning);
+}
+
+.theme-plane .badge-error {
+  background: rgba(235, 87, 87, 0.1);
+  color: var(--color-error);
+}
+
+.theme-plane .badge-info {
+  background: rgba(47, 128, 237, 0.1);
+  color: var(--color-info);
+}
+
+/* Plane input styles */
+.theme-plane input[type="text"],
+.theme-plane input[type="email"],
+.theme-plane input[type="password"],
+.theme-plane textarea,
+.theme-plane select {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border-0);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.theme-plane input:focus,
+.theme-plane textarea:focus,
+.theme-plane select:focus {
+  outline: none;
+  border-color: var(--color-primary-50);
+  box-shadow: 0 0 0 3px rgba(99, 81, 255, 0.1);
+}
+
+/* Plane layout */
+.theme-plane .layout-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.theme-plane .main-content {
+  flex: 1;
+  padding: 1.5rem;
+  background: var(--color-bg-1);
+}
+
+/* Embed mode - for iframe embedding */
+.embed-mode {
+  /* Remove sidebar in embed mode */
+}
+
+.embed-mode .sidebar {
+  display: none;
+}
+
+.embed-mode .main-content {
+  padding: 1rem;
+}
+
+/* Print styles for embed */
+@media print {
+  .theme-plane .sidebar {
+    display: none;
+  }
+}
