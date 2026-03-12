@@ -17,5 +17,27 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+    // CORS headers for embed mode
+    cors: {
+      origin: [
+        'http://localhost:3000',
+        'http://localhost:4200',
+        'http://localhost:8000',
+        'http://localhost:54617',
+        'http://168.231.69.92:54617',
+      ],
+      methods: ['GET', 'POST', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+      credentials: true,
+    },
+  },
+  preview: {
+    port: 4173,
+    // CORS headers for preview server (production build preview)
+    cors: {
+      origin: '*',
+      methods: ['GET', 'POST', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    },
   },
 });

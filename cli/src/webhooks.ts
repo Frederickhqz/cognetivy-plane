@@ -332,6 +332,34 @@ export function startWebhookServer(port: number = 3000, cwd: string = process.cw
   const express = require('express');
   const app = express();
   
+  // Enable CORS for cross-origin requests from Plane
+  app.use((req: Request, res: Response, next: Function) => {
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:4200',
+      'http://localhost:8000',
+      'http://localhost:54617',
+      'http://168.231.69.92:54617',
+    ];
+    
+    // Allow all origins in development, or use allowlist in production
+    const origin = req.headers.origin as string;
+    if (process.env.NODE_ENV !== 'production' || allowedOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    }
+    
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+    }
+    
+    next();
+  });
+  
   app.use(express.json());
   
   // Webhook endpoint
@@ -342,7 +370,13 @@ export function startWebhookServer(port: number = 3000, cwd: string = process.cw
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
   
+  // CORS preflight for webhook endpoint
+  app.options('/webhooks/plane', (req: Request, res: Response) => {
+    res.status(200).end();
+  });
+  
   return app.listen(port, () => {
     console.log(`Cognetivy webhook server listening on port ${port}`);
+    console.log(`CORS enabled for: ${allowedOrigins.join(', ')}`);
   });
 }
