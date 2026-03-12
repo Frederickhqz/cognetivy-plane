@@ -1,144 +1,143 @@
 # Cognetivy + Plane Integration Demo Script
 
-## Overview
-This demo shows how to embed Cognetivy workflow views into Plane for seamless project management.
+**Recording time: ~5 minutes**
 
-## Prerequisites
-- Cognetivy Studio running on `http://localhost:4173`
-- Plane instance running on `http://168.231.69.92:54617`
-- Project ID: `PLANE`
+## Setup
 
-## Demo Flow
+1. Start Cognetivy Studio: `cd cognetivy-plane/studio && npm run preview`
+2. Start Plane: Ensure running at `http://168.231.69.92:54617`
+3. Start MCP server: `cd cli && node dist/cli.js mcp` (in another terminal)
+4. Open browser to Studio: `http://localhost:4173`
 
-### Part 1: Embed Test Page (30 seconds)
+## Part 1: MCP Tools Demo (90 seconds)
 
-1. Open `examples/embed-test.html` in browser
-2. Show both embed views loading
-3. Verify iframe-resizer is working (height adjusts automatically)
-4. Test CORS preflight button
+### Show workflow_get
 
-**Key Points:**
-- Runs embed shows workflow runs table
-- Workflow editor shows workflow visualization
-- iframe-resizer enables automatic height adjustment
-- CORS allows cross-origin requests from Plane
-
-### Part 2: Plane Integration (60 seconds)
-
-1. Open Plane instance: `http://168.231.69.92:54617`
-2. Navigate to Settings → Views → Create View
-3. Name: "Workflow Runs"
-4. In custom HTML, paste:
-
-```html
-<div style="height: 600px; overflow: hidden;">
-  <iframe
-    src="http://localhost:4173/embed/runs?projectId=${project.id}"
-    width="100%"
-    height="100%"
-    frameborder="0"
-    style="border: none;"
-  ></iframe>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/iframe-resizer@4.3.2/js/iframeResizer.min.js"></script>
-<script>
-  iframeResize({ log: false }, 'iframe');
-</script>
+```bash
+# In terminal, show MCP tools
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | node dist/cli.js mcp | jq '.result.tools[].name'
 ```
 
-5. Save and view the embedded runs
+**Narration:** "Cognetivy provides 20+ MCP tools for workflow management. Let me show you the core ones..."
 
-**Key Points:**
-- `${project.id}` is replaced by Plane automatically
-- iframe-resizer handles dynamic height
-- Theme matches Plane design system
-
-### Part 3: Workflow Editor in Issue View (30 seconds)
-
-1. Create a custom field or page in Plane for workflows
-2. Embed workflow editor:
-
-```html
-<iframe
-  id="cognetivy-workflow"
-  src="http://localhost:4173/embed/workflow/wf_default"
-  width="100%"
-  height="800"
-  frameborder="0"
-></iframe>
+```bash
+# Get current workflow
+echo '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"workflow_get","arguments":{}}}' | node dist/cli.js mcp | jq '.result.content[0].text' -r | jq '.workflow'
 ```
 
-3. Show workflow nodes and interactions
-4. Demonstrate postMessage communication (click node → parent receives event)
+**Narration:** "workflow_get returns the current workflow with nodes and edges. Each node represents a step in the agent execution."
 
-## Technical Details
+### Show run_start and run_step
 
-### iframe-resizer Setup
-```html
-<script src="https://cdn.jsdelivr.net/npm/iframe-resizer@4.3.2/js/iframeResizer.min.js"></script>
-<script>
-  iframeResize({ log: true }, '#cognetivy-runs');
-</script>
+```bash
+# Start a run
+echo '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"run_start","arguments":{"name":"Demo Run","input_json":{"topic":"AI agents"}}}}' | node dist/cli.js mcp | jq '.result.content[0].text' -r | jq '.run_id, .next_step'
 ```
 
-### postMessage Communication
-```javascript
-// Parent (Plane) receives messages
-window.addEventListener('message', (event) => {
-  if (event.origin !== 'http://localhost:4173') return;
-  
-  if (event.data.type === 'run-selected') {
-    console.log('Run selected:', event.data.runId);
-  }
-  if (event.data.type === 'node-selected') {
-    console.log('Node selected:', event.data.nodeId);
-  }
-});
+**Narration:** "Starting a run returns a run_id and the next step. The agent can then execute steps using run_step."
+
+## Part 2: Plane Integration Demo (90 seconds)
+
+### Show plane_status
+
+```bash
+# Check Plane connection
+cd /tmp/cognetivy-test
+echo '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"plane_status","arguments":{}}}' | node /data/.openclaw/workspace/cognetivy-plane/cli/dist/cli.js mcp | jq '.result.content[0].text' -r | jq
 ```
 
-### CORS Headers
+**Narration:** "plane_status shows the Plane connection. With hybrid storage, it returns 'connected' and the workspace details."
+
+### Show plane_list_issues
+
+```bash
+# List Plane issues
+echo '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"plane_list_issues","arguments":{}}}' | node /data/.openclaw/workspace/cognetivy-plane/cli/dist/cli.js mcp | jq '.result.content[0].text' -r | jq '.count, .issues[0]'
 ```
-Access-Control-Allow-Origin: http://168.231.69.92:54617
-Access-Control-Allow-Methods: GET, POST, OPTIONS
-Access-Control-Allow-Headers: Content-Type, Authorization
-Access-Control-Allow-Credentials: true
+
+**Narration:** "plane_list_issues retrieves all issues from the configured Plane project. You can filter by labels."
+
+## Part 3: Embed Views Demo (60 seconds)
+
+### Open embed test page
+
+```bash
+# Open embed test page in browser
+open examples/embed-test.html
+# Or: xdg-open examples/embed-test.html
 ```
 
-## Theme Matching
+**Narration:** "Cognetivy provides embeddable views for Plane integration. This test page shows both the runs view and workflow editor."
 
-The embed components use Plane's design tokens:
+### Show runs embed
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| Primary | `#6351FF` | Buttons, links |
-| Background | `#FFFFFF` | Page background |
-| Foreground | `#0D0D0D` | Primary text |
-| Muted | `#F3F1FF` | Hover states |
-| Border | `#D9D9D9` | Borders, dividers |
+**In browser:**
+1. Show runs table loading
+2. Point out the status badges (completed, running, failed)
+3. Click on a run to show postMessage communication
 
-## Embed URLs
+**Narration:** "The runs embed shows workflow runs in a table. Clicking a run sends a postMessage to the parent, useful for navigation in Plane."
 
-| View | URL | Purpose |
-|------|-----|---------|
-| Runs | `/embed/runs?projectId=PLANE` | Project sidebar |
-| Workflow Editor | `/embed/workflow/:id` | Issue detail view |
+### Show workflow editor embed
+
+**In browser:**
+1. Show workflow nodes
+2. Click on a node to show selection
+3. Point out the connector lines between nodes
+
+**Narration:** "The workflow editor shows the workflow DAG. Nodes represent execution steps, and edges show data flow."
+
+## Part 4: CLI Demo (60 seconds)
+
+### Show init command
+
+```bash
+# Initialize new workspace
+cd /tmp/demo-workspace
+node /data/.openclaw/workspace/cognetivy-plane/cli/dist/cli.js init
+ls -la .cognetivy/
+```
+
+**Narration:** "The init command creates a .cognetivy directory with the workflow structure."
+
+### Show migrate command
+
+```bash
+# Show migrate help
+node /data/.openclaw/workspace/cognetivy-plane/cli/dist/cli.js migrate --help
+```
+
+**Narration:** "The migrate command converts existing workspaces to Plane storage. Use --dry-run to preview changes."
+
+## Part 5: Documentation (30 seconds)
+
+### Show docs
+
+```bash
+ls -la docs/
+# Show README
+head -50 README.md
+```
+
+**Narration:** "Complete documentation includes migration guide, CLI reference, troubleshooting, and API reference."
+
+## Wrap-up
+
+**Narration:** "Cognitivy+Plane integration provides:
+- Full MCP tool integration for AI agents
+- Bidirectional sync with Plane issues
+- Embeddable views for Plane UI
+- Complete CLI for migration and management
+
+All code is open source at github.com/Frederickhqz/cognetivy-plane"
+
+---
 
 ## Demo Checklist
 
-- [ ] Start Cognetivy Studio: `npm run preview`
-- [ ] Verify Plane is accessible
-- [ ] Open embed-test.html in browser
-- [ ] Test both embed views
-- [ ] Test CORS preflight
-- [ ] Create Plane custom view
-- [ ] Add iframe embed
-- [ ] Verify theme matching
-- [ ] Test postMessage events
-
-## Next Steps
-
-1. **Deploy Cognetivy** to production URL
-2. **Update CORS origins** to include production Plane URL
-3. **Create Plane App Manifest** for official integration
-4. **Add authentication bridge** for user context
-5. **Phase 4**: Agent Integration (MCP + SKILL)
+- [ ] Studio running at localhost:4173
+- [ ] Plane accessible at 168.231.69.92:54617
+- [ ] MCP server tested with plane_status
+- [ ] Embed test page opens in browser
+- [ ] CLI commands work (init, migrate --help)
+- [ ] Documentation accessible

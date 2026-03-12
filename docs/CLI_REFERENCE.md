@@ -84,6 +84,67 @@ cognetivy sync --workflow wf_default
 - Storage type must be `plane` or `hybrid`
 - Plane configuration must be set
 
+### `cognetivy migrate`
+
+Migrate existing Cognetivy workspace to Plane storage.
+
+```bash
+# Migrate to hybrid storage (recommended)
+cognetivy migrate \
+  --plane-url http://your-plane-instance \
+  --plane-key $PLANE_API_KEY \
+  --plane-workspace your-workspace \
+  --plane-project your-project-id
+
+# Migrate to Plane-only storage
+cognetivy migrate --storage plane \
+  --plane-url http://your-plane-instance \
+  --plane-key $PLANE_API_KEY \
+  --plane-workspace your-workspace \
+  --plane-project your-project-id
+
+# Dry-run (preview migration)
+cognetivy migrate --dry-run \
+  --plane-url http://your-plane-instance \
+  --plane-key $PLANE_API_KEY \
+  --plane-workspace your-workspace \
+  --plane-project your-project-id
+```
+
+**Options:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--storage <type>` | Storage type: `hybrid` or `plane` | `hybrid` |
+| `--plane-url <url>` | Plane instance URL | - |
+| `--plane-key <key>` | Plane API key | - |
+| `--plane-workspace <slug>` | Plane workspace slug | - |
+| `--plane-project <id>` | Plane project ID | - |
+| `--dry-run` | Preview migration without changes | - |
+| `--verbose` | Show detailed progress | - |
+
+**Output:**
+
+```
+Cognetivy Migration Tool
+=========================
+Source: /path/to/workspace
+Target storage: hybrid
+
+Found 1 workflow(s), 5 run(s) to migrate.
+
+Updated config: /path/to/workspace/.cognetivy/config.json
+
+Syncing to Plane...
+Migrated 1 workflow(s), 5 run(s), 10 collection(s)
+
+Migration complete!
+Storage type: hybrid
+Plane URL: http://your-plane-instance
+Workspace: your-workspace
+Project: your-project-id
+```
+
 ### `cognetivy test-plane`
 
 Test Plane connection and configuration.
