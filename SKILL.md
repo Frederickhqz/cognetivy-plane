@@ -41,6 +41,14 @@ Execute Cognetivy workflows through MCP server. Create, run, and manage workflow
 | `skills_list` | List available Agent skills. |
 | `skills_get` | Get full SKILL.md content for a skill. |
 
+### Plane Operations
+| Tool | Description |
+|------|-------------|
+| `plane_sync` | Sync local data to Plane. Returns sync results. |
+| `plane_status` | Check Plane connection status. Returns storage type and connection details. |
+| `plane_list_issues` | List Plane issues for the configured project. Optional labels filter. |
+| `plane_get_issue` | Get a Plane issue with its Cognetivy metadata. Parses embedded JSON. |
+
 ## Usage
 
 ### Starting a Run

@@ -118,6 +118,33 @@ const TOOLS: Array<{ name: string; description: string; inputSchema: { type: "ob
     inputSchema: { type: "object", properties: {} },
   },
   {
+    name: "plane_list_issues",
+    description:
+      "List Plane issues for the configured project. Returns issues with cognetivy metadata.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        labels: {
+          type: "array",
+          items: { type: "string" },
+          description: "Filter by labels (e.g., ['cognetivy:workflow', 'cognetivy:run'])",
+        },
+      },
+    },
+  },
+  {
+    name: "plane_get_issue",
+    description:
+      "Get a Plane issue with its Cognetivy metadata. Parses embedded JSON from description.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        issue_id: { type: "string", description: "Plane issue ID" },
+      },
+      required: ["issue_id"],
+    },
+  },
+  {
     name: "skills_list",
     description:
       "List available Agent skills (SKILL.md) from configured sources (agent, agents, cursor, factory, gemini, openclaw, opencode, qwen, workspace). Returns name, description, path, source for discovery.",
@@ -1043,6 +1070,98 @@ async function handleToolsCall(
           plane_url: storageConfig.planeApiUrl,
           plane_workspace: storageConfig.planeWorkspace,
           plane_project: storageConfig.planeProject,
+        });
+      }
+      case "plane_list_issues": {
+        const { getStorage } = await import("./storage-workspace.js");
+        const { getStorageConfig } = await import("./config.js");
+        const storage = await getStorage(cwd);
+        const storageConfig = await getStorageConfig(await getMergedConfig(cwd), cwd);
+        
+        // Check if Plane is configured
+        if (!storage.sync) {
+          return JSON.stringify({ error: "Plane not configured. Use hybrid or plane storage." });
+        }
+        
+        // Get labels filter
+        const labels = args.labels as string[] | undefined;
+        
+        // Build URL for Plane API
+        const url = `${storageConfig.planeApiUrl}/api/v1/workspaces/${storageConfig.planeWorkspace}/projects/${storageConfig.planeProject}/issues/`;
+        const headers = { "X-API-Key": storageConfig.planeApiKey || "" };
+        
+        // Fetch issues
+        const response = await fetch(url, { headers });
+        if (!response.ok) {
+          return JSON.stringify({ error: `Plane API error: ${response.status}`, status: response.statusText });
+        }
+        
+        const data = await response.json() as { results?: Array<{ id: string; name: string; labels?: string[]; extra_props?: Record<string, unknown> }> };
+        let issues = data.results || [];
+        
+        // Filter by labels if provided
+        if (labels && labels.length > 0) {
+          issues = issues.filter(issue => {
+            const issueLabels = (issue.labels || []) as string[];
+            return labels.some(l => issueLabels.includes(l));
+          });
+        }
+        
+        return JSON.stringify({
+          count: issues.length,
+          issues: issues.map(i => ({
+            id: i.id,
+            name: i.name,
+            labels: i.labels || [],
+          })),
+        });
+      }
+      case "plane_get_issue": {
+        const { getStorage } = await import("./storage-workspace.js");
+        const { getStorageConfig } = await import("./config.js");
+        const storage = await getStorage(cwd);
+        const storageConfig = await getStorageConfig(await getMergedConfig(cwd), cwd);
+        
+        // Check if Plane is configured
+        if (!storage.sync) {
+          return JSON.stringify({ error: "Plane not configured. Use hybrid or plane storage." });
+        }
+        
+        const issueId = args.issue_id as string;
+        if (!issueId) {
+          return JSON.stringify({ error: "issue_id is required" });
+        }
+        
+        // Build URL for Plane API
+        const url = `${storageConfig.planeApiUrl}/api/v1/workspaces/${storageConfig.planeWorkspace}/projects/${storageConfig.planeProject}/issues/${issueId}/`;
+        const headers = { "X-API-Key": storageConfig.planeApiKey || "" };
+        
+        // Fetch issue
+        const response = await fetch(url, { headers });
+        if (!response.ok) {
+          return JSON.stringify({ error: `Plane API error: ${response.status}`, status: response.statusText });
+        }
+        
+        const issue = await response.json() as { id: string; name: string; description?: string; labels?: string[] };
+        
+        // Parse embedded cognetivy metadata from description
+        let cognetivyMetadata = null;
+        if (issue.description) {
+          const metadataMatch = issue.description.match(/```cognetivy\n([\s\S]*?)\n```/);
+          if (metadataMatch) {
+            try {
+              cognetivyMetadata = JSON.parse(metadataMatch[1]);
+            } catch {
+              // Invalid JSON, skip
+            }
+          }
+        }
+        
+        return JSON.stringify({
+          id: issue.id,
+          name: issue.name,
+          labels: issue.labels || [],
+          cognetivy: cognetivyMetadata,
         });
       }
       default:
