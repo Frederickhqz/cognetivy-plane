@@ -332,16 +332,17 @@ export function startWebhookServer(port: number = 3000, cwd: string = process.cw
   const express = require('express');
   const app = express();
   
+  // Allowed origins for CORS (also used in startup log)
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:4200',
+    'http://localhost:8000',
+    'http://localhost:54617',
+    'http://168.231.69.92:54617',
+  ];
+  
   // Enable CORS for cross-origin requests from Plane
   app.use((req: Request, res: Response, next: Function) => {
-    const allowedOrigins = [
-      'http://localhost:3000',
-      'http://localhost:4200',
-      'http://localhost:8000',
-      'http://localhost:54617',
-      'http://168.231.69.92:54617',
-    ];
-    
     // Allow all origins in development, or use allowlist in production
     const origin = req.headers.origin as string;
     if (process.env.NODE_ENV !== 'production' || allowedOrigins.includes(origin)) {
