@@ -101,6 +101,23 @@ const TOOLS: Array<{ name: string; description: string; inputSchema: { type: "ob
     },
   },
   {
+    name: "plane_sync",
+    description:
+      "Sync local Cognetivy data to Plane. Creates/updates Plane issues for workflows and runs. Requires Plane storage configuration.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        workflow_id: { type: "string", description: "Optional: sync specific workflow only" },
+      },
+    },
+  },
+  {
+    name: "plane_status",
+    description:
+      "Check Plane connection status. Returns connection details and last sync time.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
     name: "run_start",
     description:
       "Start a new run. Returns run_id, suggested_collection_kinds, next_step (action, node_id?, hint?), and current_node_id when in progress. Follow next_step.hint for what to do next. Prefer run_step to advance; use node_start/node_complete only if needed.",
@@ -986,6 +1003,31 @@ async function handleToolsCall(
         await appendEventLine(runIdComplete, stepCompletedEvent, cwd);
 
         return JSON.stringify({ node_result_id: nodeResultIdComplete });
+      }
+      case "plane_sync": {
+        const { getStorage } = await import("./storage-workspace.js");
+        const storage = await getStorage(cwd);
+        const syncResult = await storage.sync?.();
+        return JSON.stringify({
+          success: true,
+          workflows_synced: syncResult?.workflowsSynced ?? 0,
+          runs_synced: syncResult?.runsSynced ?? 0,
+          collections_synced: syncResult?.collectionsSynced ?? 0,
+          errors: syncResult?.errors ?? [],
+        });
+      }
+      case "plane_status": {
+        const { getStorage } = await import("./storage-workspace.js");
+        const { getStorageConfig } = await import("./config.js");
+        const storage = await getStorage(cwd);
+        const storageConfig = await getStorageConfig(await getMergedConfig(cwd), cwd);
+        return JSON.stringify({
+          status: storage.sync ? "connected" : "file_only",
+          storage_type: storage.constructor.name.replace("StorageAdapter", "").toLowerCase(),
+          plane_url: storageConfig.planeApiUrl,
+          plane_workspace: storageConfig.planeWorkspace,
+          plane_project: storageConfig.planeProject,
+        });
       }
       default:
         throw new Error(`Unknown tool: ${name}`);

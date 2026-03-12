@@ -124,7 +124,9 @@ export async function handlePlaneToolCall(
       const syncResult = await storage.sync?.();
       return JSON.stringify({
         success: true,
-        synced: syncResult?.synced ?? 0,
+        workflows_synced: syncResult?.workflowsSynced ?? 0,
+        runs_synced: syncResult?.runsSynced ?? 0,
+        collections_synced: syncResult?.collectionsSynced ?? 0,
         errors: syncResult?.errors ?? [],
         workflow_id: workflowId,
       });
@@ -135,7 +137,7 @@ export async function handlePlaneToolCall(
       return JSON.stringify({
         status: "connected",
         storage_type: storageType,
-        plane_url: storageConfig.planeUrl,
+        plane_url: storageConfig.planeApiUrl,
         plane_workspace: storageConfig.planeWorkspace,
         plane_project: storageConfig.planeProject,
       });
