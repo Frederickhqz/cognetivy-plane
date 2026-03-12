@@ -3,6 +3,7 @@
 import { program } from "commander";
 import path from "node:path";
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import {
   ensureWorkspace,
   requireWorkspace,
@@ -1570,6 +1571,139 @@ program
       console.error("Hint: sync requires hybrid storage. Set storage='hybrid' in .cognetivy/config.json");
       process.exit(1);
     }
+  });
+
+program
+  .command("migrate")
+  .description("Migrate existing Cognetivy workspace to Plane storage")
+  .option("--workspace <path>", "Workspace directory (default: cwd)")
+  .option("--storage <type>", "Target storage type: hybrid or plane", "hybrid")
+  .option("--plane-url <string>", "Plane API URL")
+  .option("--plane-key <string>", "Plane API key")
+  .option("--plane-workspace <string>", "Plane workspace slug")
+  .option("--plane-project <string>", "Plane project ID")
+  .option("--dry-run", "Show what would be migrated without making changes")
+  .option("--verbose", "Show detailed migration progress")
+  .action(async (opts: {
+    workspace?: string;
+    storage?: string;
+    planeUrl?: string;
+    planeKey?: string;
+    planeWorkspace?: string;
+    planeProject?: string;
+    dryRun?: boolean;
+    verbose?: boolean;
+  }) => {
+    const cwd = process.cwd();
+    const workspacePath = opts.workspace ? path.resolve(cwd, opts.workspace) : cwd;
+    await requireWorkspace(workspacePath);
+    
+    console.log("Cognetivy Migration Tool");
+    console.log("=========================");
+    console.log(`Source: ${workspacePath}`);
+    console.log(`Target storage: ${opts.storage}`);
+    console.log("");
+    
+    // Validate storage type
+    if (opts.storage !== "hybrid" && opts.storage !== "plane") {
+      console.error("Error: --storage must be 'hybrid' or 'plane'");
+      process.exit(1);
+    }
+    
+    // Get Plane config from options or environment
+    const planeUrl = opts.planeUrl || process.env.PLANE_API_URL;
+    const planeKey = opts.planeKey || process.env.PLANE_API_KEY;
+    const planeWorkspace = opts.planeWorkspace || process.env.PLANE_WORKSPACE;
+    const planeProject = opts.planeProject || process.env.PLANE_PROJECT;
+    
+    if (!planeUrl || !planeKey || !planeWorkspace || !planeProject) {
+      console.error("Error: Missing Plane configuration.");
+      console.error("Set PLANE_API_URL, PLANE_API_KEY, PLANE_WORKSPACE, PLANE_PROJECT environment variables");
+      console.error("Or use --plane-url, --plane-key, --plane-workspace, --plane-project options");
+      process.exit(1);
+    }
+    
+    if (opts.dryRun) {
+      console.log("DRY RUN - No changes will be made");
+      console.log("");
+    }
+    
+    // Count existing data
+    const workflowsDir = path.join(workspacePath, ".cognetivy", "workflows");
+    const runsDir = path.join(workspacePath, ".cognetivy", "runs");
+    
+    let workflowCount = 0;
+    let runCount = 0;
+    
+    try {
+      const workflowIndex = JSON.parse(fsSync.readFileSync(path.join(workflowsDir, "index.json"), "utf-8"));
+      workflowCount = workflowIndex.workflows?.length || 0;
+    } catch {
+      // No workflows
+    }
+    
+    try {
+      const runFiles = fsSync.readdirSync(runsDir).filter((f: string) => f.endsWith(".json"));
+      runCount = runFiles.length;
+    } catch {
+      // No runs
+    }
+    
+    console.log(`Found ${workflowCount} workflow(s), ${runCount} run(s) to migrate.`);
+    
+    if (workflowCount === 0 && runCount === 0) {
+      console.log("No data to migrate.");
+      process.exit(0);
+    }
+    
+    // Update config
+    if (!opts.dryRun) {
+      const configPath = path.join(workspacePath, ".cognetivy", "config.json");
+      const newConfig = {
+        storage: opts.storage,
+        plane: {
+          apiUrl: planeUrl,
+          apiKey: planeKey,
+          workspace: planeWorkspace,
+          project: planeProject,
+        },
+      };
+      
+      // Merge with existing config
+      let existingConfig: Record<string, unknown> = {};
+      try {
+        existingConfig = JSON.parse(fsSync.readFileSync(configPath, "utf-8"));
+      } catch {
+        // No existing config
+      }
+      
+      const mergedConfig = { ...existingConfig, ...newConfig };
+      fsSync.writeFileSync(configPath, JSON.stringify(mergedConfig, null, 2));
+      console.log(`Updated config: ${configPath}`);
+    }
+    
+    // Sync to Plane
+    if (!opts.dryRun) {
+      console.log("");
+      console.log("Syncing to Plane...");
+      
+      const { syncToPlane } = await import("./storage-workspace.js");
+      const result = await syncToPlane(workspacePath);
+      
+      console.log(`Migrated ${result.workflowsSynced} workflow(s), ${result.runsSynced} run(s), ${result.collectionsSynced} collection(s)`);
+      
+      if (result.errors.length > 0) {
+        console.error(`Errors: ${result.errors.length}`);
+        result.errors.forEach(e => console.error(`  - ${e.type}/${e.id}: ${e.error}`));
+      }
+    }
+    
+    console.log("");
+    console.log("Migration complete!");
+    console.log(`Storage type: ${opts.storage}`);
+    console.log(`Plane URL: ${planeUrl}`);
+    console.log(`Workspace: ${planeWorkspace}`);
+    console.log(`Project: ${planeProject}`);
   });
 
 program
