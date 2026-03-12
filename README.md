@@ -1,198 +1,229 @@
-<p align="center">
-  <img src="studio/public/favicon.png" alt="Cognetivy" width="96" height="96" />
-</p>
+# Cognetivy + Plane Integration
 
-# Cognetivy
+**A workflow execution engine with deep Plane integration.**
 
-[![npm version](https://img.shields.io/npm/v/cognetivy.svg)](https://www.npmjs.com/package/cognetivy) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+Cognetivy is a workflow orchestration engine that executes multi-step agent workflows. With Plane integration, you can sync workflows and runs to Plane issues for project management.
 
-**Website:** [cognetivy.com](https://cognetivy.com)
+## Quick Start
 
-
-![Cognetivy Studio: workflow canvas, run details, and data collected](cli/studio_example.jpg)
-
-Cognetivy is an open-source state layer for AI-assistants like Claude Code, Cursor, OpenClaw, etc. It helps you define workflows, track runs and events, and store structured collections in a local `.cognetivy/` workspace. No LLMs inside - just the data and tools your editor's agent uses via [Skills](https://agentskills.io/) and [MCP](https://agentskills.io/). Works with **Claude Code**, **Cursor**, **OpenClaw**, and other Skills and MCP-compatible clients.
-
-## Star History
-
-<a href="https://www.star-history.com/?repos=meitarbe%2Fcognetivy&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=meitarbe/cognetivy&type=date&theme=dark&legend=top-left&v=2&new=2" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=meitarbe/cognetivy&type=date&legend=top-left&v=2&new=2" />
-   <img alt="Star History Chart" src="https://api.star-history.com/image?repos=meitarbe/cognetivy&type=date&legend=top-left&v=2&new=2" />
- </picture>
-</a>
-
-
-## Why Cognetivy
-
-AI coding agents are great at producing output, but their process is usually hard to inspect and hard to repeat.
-
-Cognetivy gives your agent an operational layer so you can:
-
-- **Define how it should work** with explicit workflows
-- **Track what happened** in each run and event
-- **Keep reasoning artifacts organized** in structured collections
-- **Re-run and compare outcomes** with a persistent local workspace
-
-In short: Cognetivy turns powerful-but-chaotic agent sessions into structured, auditable workflows.
-
-### Demo
-
-![Cognetivy demo](cli/cognetivy_demo.gif)
-
-
-## Explain it like I'm new to this
-
-Think of your coding agent as a very smart intern:
-
-- The model is the **brain**
-- Your editor is the **workspace**
-- Cognetivy is the **memory + process manager**
-
-Without Cognetivy, a lot of important context lives in chat history and disappears.
-With Cognetivy, that work is captured as workflows, runs, events, and collections inside `.cognetivy/`.
-
-
-**Project status:** Actively maintained. We welcome [issues](https://github.com/meitarbe/cognetivy/issues) and [pull requests](https://github.com/meitarbe/cognetivy/pulls).
-
-**Great for:**
-
-- Building repeatable AI coding workflows
-- Running structured research tasks with coding agents
-- Teams that need traceability and auditability for agent output
-
-## Requirements
-
-- **Node.js** ≥ 18
-- A project directory (or an empty folder) to create a workspace in
-- A coding agent (Claude Code, Cursor, OpenClaw, etc.) working on that directory
-
----
-
-## Install
-
-Run once with npx (no global install):
+### 1. Initialize Workspace
 
 ```bash
-npx cognetivy
+# File-based storage (default)
+cognetivy init
+
+# Hybrid storage (syncs to Plane)
+cognetivy init --storage hybrid \
+  --plane-url http://your-plane-instance \
+  --plane-key $PLANE_API_KEY \
+  --plane-workspace your-workspace \
+  --plane-project your-project-id
 ```
 
-Or install globally for use from any directory and for MCP:
+### 2. Start MCP Server
 
 ```bash
-npm install -g cognetivy
+cognetivy mcp
 ```
 
----
+### 3. Use with AI Agents
 
-## Step-by-step
+Connect to the MCP server from your AI agent (Cursor, OpenClaw, etc.) and use the workflow tools:
 
-### Step 1 - Run cognetivy
+- `workflow_get` - Get current workflow
+- `run_start` - Start a workflow run
+- `run_step` - Execute workflow steps
+- `run_status` - Check run progress
 
-Open a terminal in your project folder (or an empty folder) and run:
+## Storage Types
 
-```bash
-npx cognetivy
-```
-An installer will open in the terminal:
+| Type | Description | Use Case |
+|------|-------------|----------|
+| `file` | Local filesystem only | Development, offline |
+| `plane` | Plane API only | Team collaboration |
+| `hybrid` | Local + Plane sync | Production, best of both |
 
----
+## Plane Integration
 
-### Step 2 - Use the installer
+### Features
 
-<img src="cli/installer.jpg" alt="Cognetivy installer: choose your coding tool(s)" width="35%" />
+- **Bidirectional Sync**: Local changes sync to Plane, Plane changes sync back
+- **Issue Mapping**: Workflows → Plane issues, Runs → Plane sub-issues
+- **Metadata Preservation**: Cognetivy data stored in issue description
+- **Webhook Support**: Real-time updates from Plane webhooks
 
-1. In the installer, choose your coding agent (Claude Code, Cursor, OpenClaw, etc.)
-2. Cognetivy will create a `.cognetivy/` workspace in the current folder.
-3. Cognetivy will install its skills into the workspace.
+### Setup
 
----
+1. **Get Plane API Key**
+   - Go to Settings > API Keys in Plane
+   - Create a new API key with project access
 
-### Step 3 - Studio opens
+2. **Set Environment Variables**
+   ```bash
+   export PLANE_API_URL="http://your-plane-instance"
+   export PLANE_API_KEY="plane_api_xxx"
+   export PLANE_WORKSPACE="your-workspace"
+   export PLANE_PROJECT="your-project-id"
+   ```
 
-<img src="cli/light_theme_studio.jpg" alt="Cognetivy Studio" width="75%" />
+3. **Initialize with Hybrid Storage**
+   ```bash
+   cognetivy init --storage hybrid
+   ```
 
-When the installer finishes, Cognetivy Studio opens in your browser.
+4. **Test Connection**
+   ```bash
+   cognetivy test-plane
+   ```
 
-You'll see the read-only UI: workflow, runs, and collections.
+5. **Sync Existing Data**
+   ```bash
+   cognetivy sync
+   ```
 
----
+### Embedding in Plane
 
-### Step 4 - Ask your agent to create a workflow and run it
+Embed Cognetivy views in Plane using iframes:
 
-<img src="cli/claude_example.jpg" alt="Claude Code: create a workflow" width="60%" />
+```html
+<!-- Runs View -->
+<iframe
+  src="http://your-cognetivy-host/embed/runs?projectId=YOUR_PROJECT"
+  width="100%"
+  height="600"
+  frameborder="0"
+></iframe>
 
-In another chat window, ask your agent to create a workflow and run it.
-
-- "Create a workflow with three nodes: one that gathers requirements, one that writes a plan, and one that writes a summary. Save it as the current workflow."
-- "Start a run for the current workflow with input with the topic 'user onboarding'."
-
-## Connect your agent (MCP)
-
-Cognetivy works best with **agent skills**, but you can connect via **MCP** so cognetivy tools appear in chat.
-
-### Cursor
-
-1. Open **Settings** → **Tools & MCP** (or **Features** → **MCP**).
-2. Click **Add new MCP server**.
-3. Set **Name** to `cognetivy`.
-4. Set **Command** to `cognetivy` (or the full path if not on PATH).
-5. Set **Arguments** to `mcp`. If your project root is not the folder that contains `.cognetivy/`, add `--workspace` and the path to that folder (e.g. `--workspace ./example-usage`).
-6. Save and restart Cursor.
-
-Cognetivy tools (workflow, run, event, collection, node, etc.) will then be available in chat.
-
-**Optional  -  config file:** You can instead add the server to `~/.cursor/mcp.json` (or your project’s `.cursor/mcp.json`):
-
-```json
-{
-  "mcpServers": {
-    "cognetivy": {
-      "command": "cognetivy",
-      "args": ["mcp"]
-    }
-  }
-}
-```
-
-Use `"args": ["mcp", "--workspace", "/path/to/folder/with/.cognetivy"]` if the workspace is not your current project root.
-
-## Workflow templates (new)
-
-Use built-in templates inspired by practical Cognetivy use-cases:
-
-```bash
-cognetivy workflow templates
-cognetivy workflow apply-template            # interactive picker (creates workflow + sets current)
-cognetivy workflow apply-template --id bug-triage-and-fix
-cognetivy workflow template --id bug-triage-and-fix > workflow.template.json
-cognetivy workflow set --workflow <your_workflow_id> --file workflow.template.json --name "template baseline"
+<!-- Workflow Editor -->
+<iframe
+  src="http://your-cognetivy-host/embed/workflow/wf_default"
+  width="100%"
+  height="800"
+  frameborder="0"
+></iframe>
 ```
 
-See full gallery and usage in [docs/TEMPLATES.md](docs/TEMPLATES.md).
+See [docs/PLANE_EMBED.md](docs/PLANE_EMBED.md) for full embedding guide.
 
-## Commands
+## MCP Tools
+
+### Workflow Operations
+
+| Tool | Description |
+|------|-------------|
+| `workflow_get` | Get current workflow version (nodes, edges) |
+| `workflow_set` | Set workflow from JSON |
+
+### Run Operations
+
+| Tool | Description |
+|------|-------------|
+| `run_start` | Start new run. Returns run_id, next_step |
+| `run_step` | Advance run: start or complete node |
+| `run_status` | Get run status: nodes, collections, next_step |
+| `run_complete` | Mark run as completed |
+
+### Collection Operations
+
+| Tool | Description |
+|------|-------------|
+| `collection_schema_get` | Get collection schema |
+| `collection_schema_set` | Set full collection schema |
+| `collection_schema_add_kind` | Add one collection kind |
+| `collection_list` | List collection kinds with data |
+| `collection_get` | Get all items of a kind |
+| `collection_set` | Replace all items of a kind |
+| `collection_append` | Append one item to a kind |
+
+### Plane Operations
+
+| Tool | Description |
+|------|-------------|
+| `plane_sync` | Sync local data to Plane |
+| `plane_status` | Check Plane connection status |
+| `plane_list_issues` | List Plane issues with optional filter |
+| `plane_get_issue` | Get Plane issue with Cognetivy metadata |
+
+### Skills Operations
+
+| Tool | Description |
+|------|-------------|
+| `skills_list` | List available Agent skills |
+| `skills_get` | Get full SKILL.md content |
+
+## CLI Reference
 
 | Command | Description |
-|--------|-------------|
-| `npx cognetivy` | Run installer and open Studio (first time) or open Studio |
-| `cognetivy workflow get` | Print current workflow |
-| `cognetivy run start --input <file>` | Start a run |
-| `cognetivy studio` | Open Studio in the browser |
-| `cognetivy mcp` | Start MCP server (for your editor) |
-| `cognetivy install cursor` | Install skills into Cursor (`claude`, `agents`, `gemini`, `qwen`, `factory`, `opencode`, `openclaw`, `workspace` also supported) |
+|---------|-------------|
+| `cognetivy init` | Initialize workspace (file storage) |
+| `cognetivy init --storage plane` | Initialize with Plane storage |
+| `cognetivy init --storage hybrid` | Initialize with hybrid storage |
+| `cognetivy sync` | Sync local data to Plane |
+| `cognetivy test-plane` | Test Plane connection |
+| `cognetivy mcp` | Start MCP server (stdio) |
 
----
+## Architecture
 
-## Community
+```
+┌─────────────────┐     MCP      ┌─────────────────┐
+│   AI Agent      │◄────────────►│  Cognetivy CLI  │
+│  (Cursor/OpenClaw)              │   (MCP Server)   │
+└─────────────────┘              └────────┬────────┘
+                                          │
+                                    ┌─────┴─────┐
+                                    │           │
+                              ┌─────▼─────┐ ┌───▼────┐
+                              │   File    │ │ Plane  │
+                              │  Storage  │ │  API   │
+                              └───────────┘ └────────┘
+```
 
-- [Contributing](CONTRIBUTING.md)  -  how to run the project, run tests, and submit changes
-- [Code of Conduct](CODE_OF_CONDUCT.md)
-- [Report a bug](https://github.com/meitarbe/cognetivy/issues/new?template=bug_report.md) · [Request a feature](https://github.com/meitarbe/cognetivy/issues/new?template=feature_request.md)
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full architecture.
 
----
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [SKILL.md](SKILL.md) | Agent skill definition |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture |
+| [docs/SETUP.md](docs/SETUP.md) | Setup guide |
+| [docs/API.md](docs/API.md) | Plane API requirements |
+| [docs/PLANE_EMBED.md](docs/PLANE_EMBED.md) | Embedding guide |
+| [docs/MIGRATION.md](docs/MIGRATION.md) | Migration from file to Plane |
+| [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md) | CLI command reference |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common issues |
+
+## Examples
+
+| Example | Description |
+|---------|-------------|
+| [examples/embed-runs.html](examples/embed-runs.html) | Simple runs embed |
+| [examples/embed-workflow.html](examples/embed-workflow.html) | Simple workflow embed |
+| [examples/embed-test.html](examples/embed-test.html) | Comprehensive test page |
+
+## Development
+
+```bash
+# Clone and install
+git clone https://github.com/Frederickhqz/cognetivy-plane.git
+cd cognetivy-plane
+npm install
+
+# Build CLI
+cd cli && npm run build
+
+# Build Studio
+cd studio && npm run build
+
+# Run tests
+npm test
+```
 
 ## License
 
-[MIT](LICENSE)
+MIT
+
+## Credits
+
+- Original Cognetivy by [Meitar](https://github.com/meitarbe/cognetivy)
+- Plane integration by [Frederick Henriquez](https://github.com/Frederickhqz)
