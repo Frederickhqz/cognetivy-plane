@@ -120,9 +120,36 @@ program
   .option("--no-gitignore", "Do not add .gitignore snippet for runs/events/collections")
   .option("--force", "Re-init: overwrite workflow pointer and default version if present")
   .option("--workspace-only", "Only create .cognetivy workspace; do not prompt for skill installation")
-  .action(async (opts: { gitignore?: boolean; force?: boolean; workspaceOnly?: boolean }) => {
+  .option("--storage <type>", "Storage backend: file, plane, or hybrid (default: file)")
+  .option("--plane-url <url>", "Plane API URL (for plane/hybrid storage)")
+  .option("--plane-key <key>", "Plane API key (for plane/hybrid storage)")
+  .option("--plane-workspace <slug>", "Plane workspace slug (for plane/hybrid storage)")
+  .option("--plane-project <id>", "Plane project ID (for plane/hybrid storage)")
+  .action(async (opts: { 
+    gitignore?: boolean; 
+    force?: boolean; 
+    workspaceOnly?: boolean;
+    storage?: 'file' | 'plane' | 'hybrid';
+    planeUrl?: string;
+    planeKey?: string;
+    planeWorkspace?: string;
+    planeProject?: string;
+  }) => {
     const cwd = process.cwd();
     const noGitignore = opts.gitignore === false;
+    
+    // Handle storage configuration
+    if (opts.storage && opts.storage !== 'file') {
+      const { initWorkspaceWithStorage } = await import("./storage-workspace.js");
+      await initWorkspaceWithStorage(cwd, {
+        storage: opts.storage,
+        planeUrl: opts.planeUrl,
+        planeKey: opts.planeKey,
+        planeWorkspace: opts.planeWorkspace,
+        planeProject: opts.planeProject,
+      });
+    }
+    
     if (opts.workspaceOnly) {
       await ensureWorkspace(cwd, { force: opts.force, noGitignore });
       console.log("Initialized cognetivy workspace at .cognetivy/");
@@ -1511,6 +1538,73 @@ program
   .action(async (opts: { workspace?: string }) => {
     const workspacePath = opts.workspace ? path.resolve(process.cwd(), opts.workspace) : process.cwd();
     await runMcpServer(workspacePath);
+  });
+
+program
+  .command("sync")
+  .description("Sync local workspace data to Plane (hybrid storage only)")
+  .option("--workspace <path>", "Workspace directory (default: cwd)")
+  .option("--verbose", "Show detailed sync results")
+  .action(async (opts: { workspace?: string; verbose?: boolean }) => {
+    const cwd = process.cwd();
+    const workspacePath = opts.workspace ? path.resolve(cwd, opts.workspace) : cwd;
+    await requireWorkspace(workspacePath);
+    
+    const { syncToPlane } = await import("./storage-workspace.js");
+    
+    try {
+      const result = await syncToPlane(workspacePath);
+      
+      if (opts.verbose) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log(`Synced ${result.workflowsSynced} workflows, ${result.runsSynced} runs to Plane.`);
+        if (result.errors.length > 0) {
+          console.error(`Errors: ${result.errors.length}`);
+          result.errors.forEach(e => console.error(`  - ${e.type}/${e.id}: ${e.error}`));
+        }
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`Error: ${message}`);
+      console.error("Hint: sync requires hybrid storage. Set storage='hybrid' in .cognetivy/config.json");
+      process.exit(1);
+    }
+  });
+
+program
+  .command("test-plane")
+  .description("Test Plane API connection")
+  .option("--url <string>", "Plane API URL (default: PLANE_API_URL env)")
+  .option("--key <string>", "Plane API key (default: PLANE_API_KEY env)")
+  .option("--workspace <string>", "Plane workspace (default: PLANE_WORKSPACE env)")
+  .action(async (opts: { url?: string; key?: string; workspace?: string }) => {
+    const { getMergedConfig } = await import("./config.js");
+    const { testPlaneConnection } = await import("./storage-workspace.js");
+    
+    const config = await getMergedConfig();
+    
+    const apiUrl = opts.url || process.env.PLANE_API_URL || config.plane?.apiUrl;
+    const apiKey = opts.key || process.env.PLANE_API_KEY || config.plane?.apiKey;
+    const workspace = opts.workspace || process.env.PLANE_WORKSPACE || config.plane?.workspace;
+    
+    if (!apiUrl || !apiKey || !workspace) {
+      console.error("Error: Missing Plane configuration.");
+      console.error("Set PLANE_API_URL, PLANE_API_KEY, PLANE_WORKSPACE environment variables");
+      console.error("Or use --url, --key, --workspace options");
+      process.exit(1);
+    }
+    
+    console.log(`Testing connection to ${apiUrl}/workspaces/${workspace}...`);
+    
+    const result = await testPlaneConnection(apiUrl, apiKey, workspace);
+    
+    if (result.success) {
+      console.log("✅ Connection successful!");
+    } else {
+      console.error(`❌ Connection failed: ${result.error}`);
+      process.exit(1);
+    }
   });
 
 program
