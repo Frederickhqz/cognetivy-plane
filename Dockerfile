@@ -16,7 +16,9 @@ COPY studio ./studio
 WORKDIR /app/cli
 RUN npm ci && npm run build
 
-# Build Studio
+# Build Studio (default base: /cognetivy/ for Plane integration)
+ARG VITE_BASE_PATH=/cognetivy/
+ENV VITE_BASE_PATH=$VITE_BASE_PATH
 WORKDIR /app/studio
 RUN npm ci && npm run build
 
@@ -48,5 +50,5 @@ WORKDIR /app/studio
 # Expose Studio port
 EXPOSE 4173
 
-# Start command - serve static files
-CMD ["serve", "-s", "dist", "-l", "4173"]
+# Start command - serve static files with SPA fallback
+CMD ["serve", "-s", "dist", "-l", "4173", "--no-clipboard"]

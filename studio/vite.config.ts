@@ -8,6 +8,8 @@ export default defineConfig({
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
   },
+  // Base path for serving from /cognetivy/ subpath in Plane
+  base: process.env.VITE_BASE_PATH || "/cognetivy/",
   build: { outDir: "dist" },
   server: {
     port: 5173,
